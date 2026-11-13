@@ -1,6 +1,8 @@
 // src/core/abc-curve.ts
 // Curva ABC: ordenar por custo total decrescente; A = até 80% acumulado,
 // B = 80–95%, C = 95–100% (02-modelo-dados-e-regras.md §2).
+// A classe é decidida pelo acumulado ANTES do item (decisão #28): o item que
+// cruza o limite pertence à classe anterior (o 1º item é sempre A).
 import { D, ZERO, HUNDRED, type Dec, type DecimalInput } from "./money";
 
 export type AbcClass = "A" | "B" | "C";
@@ -45,8 +47,9 @@ export function buildAbcCurve<T>(
   let cumulative = ZERO;
   return sorted.map((r, idx) => {
     const sharePct = grandTotal.isZero() ? ZERO : r.total.div(grandTotal).times(HUNDRED);
+    const before = cumulative;
     cumulative = cumulative.plus(sharePct);
-    const abcClass: AbcClass = cumulative.lte(a) ? "A" : cumulative.lte(b) ? "B" : "C";
+    const abcClass: AbcClass = before.lt(a) ? "A" : before.lt(b) ? "B" : "C";
     return { rank: idx + 1, item: r.item, total: r.total, sharePct, cumulativePct: cumulative, abcClass };
   });
 }

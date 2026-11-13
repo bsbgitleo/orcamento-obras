@@ -181,6 +181,7 @@ CREATE TABLE "Budget" (
     "bdiId" TEXT NOT NULL,
     "supplyBdiId" TEXT,
     "socialChargesId" TEXT NOT NULL,
+    "scheduleMonths" INTEGER NOT NULL DEFAULT 6,
     "directCost" DECIMAL(15,2) NOT NULL DEFAULT 0,
     "salePrice" DECIMAL(15,2) NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

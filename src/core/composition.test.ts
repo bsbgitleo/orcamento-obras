@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateCompositionCost,
   CompositionCycleError,
+  explodeInputs,
   itemCost,
   MissingReferenceError,
   serviceTotal,
@@ -109,5 +110,20 @@ describe("serviceTotal", () => {
   it("quantidade × custo unitário, truncado", () => {
     expect(serviceTotal("152.3456", "6.40").toString()).toBe("975.01"); // 975.01184
     expect(serviceTotal("3", "0.333").toString()).toBe("0.99");        // 0.999 → trunca
+  });
+});
+
+describe("explodeInputs", () => {
+  it("agrega coeficientes atravessando composições auxiliares", () => {
+    const m = explodeInputs("104658", catalog);
+    // 88316 → mo-88316 × 1 × 1.279 ; 88309 → mo-88309 × 0.639
+    expect(m.get("mo-88316")!.toString()).toBe("1.279");
+    expect(m.get("mo-88309")!.toString()).toBe("0.639");
+    expect(m.get("36178")!.toString()).toBe("6.4375");
+    expect(m.size).toBe(5);
+  });
+  it("multiplica pelo fator (quantidade do serviço)", () => {
+    const m = explodeInputs("104658", catalog, "20");
+    expect(m.get("36178")!.toString()).toBe("128.75");
   });
 });

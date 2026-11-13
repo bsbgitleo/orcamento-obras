@@ -63,6 +63,13 @@ export const WORK_TYPE_LABEL: Record<string, string> = {
   FORNECIMENTO_MATERIAIS_EQUIPAMENTOS: "Mero fornecimento de materiais e equipamentos",
 };
 
+export const INPUT_KIND_LABEL: Record<string, string> = {
+  MATERIAL: "material",
+  MAO_DE_OBRA: "mão de obra",
+  EQUIPAMENTO: "equipamento",
+  SERVICO: "serviço",
+};
+
 export const BUDGET_STATUS_LABEL: Record<string, string> = {
   DRAFT: "Rascunho",
   IN_REVIEW: "Em revisão",

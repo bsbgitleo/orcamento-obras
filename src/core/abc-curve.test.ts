@@ -17,13 +17,20 @@ describe("buildAbcCurve", () => {
     expect(curve.map((r) => r.cumulativePct.toString())).toEqual(["50", "80", "90", "96", "100"]);
   });
 
-  it("classifica A ≤ 80%, B ≤ 95%, C > 95%", () => {
+  it("classifica pelo acumulado antes do item: A < 80%, B < 95%, C", () => {
     const curve = buildAbcCurve(rows);
-    expect(curve.map((r) => r.abcClass)).toEqual(["A", "A", "B", "C", "C"]);
+    // acumulados: 50, 80, 90, 96, 100 → antes: 0, 50, 80, 90, 96
+    expect(curve.map((r) => r.abcClass)).toEqual(["A", "A", "B", "B", "C"]);
+  });
+
+  it("o item que cruza o limite fica na classe anterior; o 1º é sempre A", () => {
+    const curve = buildAbcCurve([{ item: "x", total: "977" }, { item: "y", total: "23" }]);
+    expect(curve.map((r) => r.abcClass)).toEqual(["A", "C"]);
   });
 
   it("aceita limites customizados", () => {
     const curve = buildAbcCurve(rows, { a: "50", b: "90" });
+    // antes: 0, 50, 80, 90, 96
     expect(curve.map((r) => r.abcClass)).toEqual(["A", "B", "B", "C", "C"]);
   });
 

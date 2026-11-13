@@ -5,3 +5,4 @@ export * from "./composition";
 export * from "./abc-curve";
 export * from "./wbs";
 export * from "./budget";
+export * from "./schedule";

@@ -170,3 +170,30 @@ export function calculateCompositionCost(
 export function serviceTotal(quantity: DecimalInput, unitCost: DecimalInput): Dec {
   return truncMoney(D(quantity).times(unitCost));
 }
+
+/**
+ * Explode uma composição até os insumos: coeficiente agregado por insumo
+ * (Σ dos caminhos, coeficientes multiplicados ao atravessar auxiliares).
+ * Base da curva ABC de insumos e do levantamento de quantitativos.
+ */
+export function explodeInputs(
+  compositionId: string,
+  catalog: Catalog,
+  factor: DecimalInput = 1,
+  acc: Map<string, Dec> = new Map(),
+  stack: string[] = [],
+): Map<string, Dec> {
+  if (stack.includes(compositionId)) throw new CompositionCycleError([...stack, compositionId]);
+  const composition = catalog.getComposition(compositionId);
+  if (!composition) throw new MissingReferenceError("composição", compositionId);
+  const f = D(factor);
+  for (const item of composition.items) {
+    const coef = f.times(item.coefficient);
+    if (item.type === "INSUMO") {
+      acc.set(item.inputId, (acc.get(item.inputId) ?? ZERO).plus(coef));
+    } else {
+      explodeInputs(item.compositionId, catalog, coef, acc, [...stack, compositionId]);
+    }
+  }
+  return acc;
+}

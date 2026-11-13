@@ -273,6 +273,9 @@ model Budget {
   socialChargesId String
   socialCharges   SocialChargesProfile @relation(fields: [socialChargesId], references: [id])
 
+  /// Duração do cronograma físico-financeiro (meses)
+  scheduleMonths Int @default(6)
+
   // Totais desnormalizados (recalculados a cada alteração)
   directCost Decimal @default(0) @db.Decimal(15, 2)
   salePrice  Decimal @default(0) @db.Decimal(15, 2)

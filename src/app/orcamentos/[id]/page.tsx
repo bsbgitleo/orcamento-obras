@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { BUDGET_STATUS_LABEL, CATEGORY_LABEL, PROJECT_TYPE_LABEL, REGIME_LABEL, WORK_TYPE_LABEL, brl, dateTimeBR, pct, refMonth } from "@/lib/format";
 import { WbsEditor, type WbsLine } from "@/components/wbs-editor";
+import { BudgetTabs } from "@/components/budget-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         <h1 style={{ margin: 0 }}><span className="mono muted">{project.code}</span> · {project.name}</h1>
         <span className="badge">{BUDGET_STATUS_LABEL[budget.status]} · R{budget.revision}</span>
       </div>
+      <BudgetTabs projectId={project.id} />
 
       <div className="totals" style={{ marginBottom: 18 }}>
         <div className="box"><div className="label">Custo direto</div><div className="value">{brl(budget.directCost)}</div></div>
