@@ -10,6 +10,7 @@ import { prisma } from "../src/lib/prisma";
 import { parseReferenceWorkbook } from "../src/import/sinapi/parse-reference";
 import { parseLaborShareWorkbook } from "../src/import/sinapi/parse-labor-share";
 import { loadSinapiReference } from "../src/import/sinapi/load";
+import { cacheCompositionCosts } from "../src/lib/pricing/cache-composition-costs";
 import type { SinapiRegime } from "../src/import/sinapi/types";
 
 const { values: args } = parseArgs({
@@ -43,6 +44,9 @@ async function main() {
     console.log(`OK ${parsed.referenceMonth}: ${r.inputs} insumos, ${r.compositions} composições, ${r.items} itens` +
       (r.unresolvedItems ? `, ${r.unresolvedItems} itens sem vínculo` : "") +
       ` (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+    const cached = await cacheCompositionCosts(prisma, r.priceTableId);
+    console.log(`  custos calculados: ${cached.computed} (${cached.incomplete} sem custo)` +
+      (cached.mismatches.length ? ` — ATENÇÃO: ${cached.mismatches.length} divergem do publicado: ${cached.mismatches.slice(0, 5).map((m) => `${m.code} ${m.computed}≠${m.published}`).join(", ")}` : " — todos iguais ao publicado"));
     if (parsed.socialCharges) {
       console.log(`  encargos sociais ${args.uf}: horista ${parsed.socialCharges.hourly}, mensalista ${parsed.socialCharges.monthly}`);
     }

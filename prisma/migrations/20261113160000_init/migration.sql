@@ -3,6 +3,9 @@
 -- engine binary was unavailable in the authoring environment); apply with
 -- `prisma migrate deploy` or `psql -f`.
 
+-- Extensions (unaccent is a trusted extension since PostgreSQL 13)
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
 -- CreateEnum
 CREATE TYPE "ProjectType" AS ENUM ('PUBLIC', 'PRIVATE');
 
@@ -123,6 +126,7 @@ CREATE TABLE "Composition" (
     "unit" TEXT NOT NULL,
     "group" TEXT,
     "referenceCost" DECIMAL(15,2),
+    "unitCost" DECIMAL(15,2),
     "laborShare" DECIMAL(7,4),
     "sourceStatus" TEXT,
     "derivedFromId" TEXT,
@@ -199,6 +203,8 @@ CREATE TABLE "WbsNode" (
     "quantity" DECIMAL(15,4),
     "unitCost" DECIMAL(15,2),
     "totalCost" DECIMAL(15,2),
+    "unitPrice" DECIMAL(15,2),
+    "totalPrice" DECIMAL(15,2),
     "isSupplyItem" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "WbsNode_pkey" PRIMARY KEY ("id")

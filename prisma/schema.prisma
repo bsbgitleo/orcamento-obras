@@ -188,6 +188,8 @@ model Composition {
   group         String?
   /// Custo unitário publicado pela fonte (CSD/CCD/CSE) — usado para conferir o cálculo
   referenceCost Decimal?          @db.Decimal(15, 2)
+  /// Custo unitário calculado pelo app a partir dos itens (cache; null = incompleta / sem custo)
+  unitCost      Decimal?          @db.Decimal(15, 2)
   /// Percentual de mão de obra no custo (relatório "mão de obra" do SINAPI), fração 0–1
   laborShare    Decimal?          @db.Decimal(7, 4)
   /// Situação na fonte (SINAPI: COM CUSTO | SEM CUSTO | EM ESTUDO)
@@ -306,8 +308,10 @@ model WbsNode {
   composition   Composition? @relation(fields: [compositionId], references: [id])
   unit          String?
   quantity      Decimal?     @db.Decimal(15, 4)
-  unitCost      Decimal?     @db.Decimal(15, 2) // calculado: Σ TRUNC(coef × preço, 2)
-  totalCost     Decimal?     @db.Decimal(15, 2)
+  unitCost      Decimal?     @db.Decimal(15, 2) // custo unitário = custo da composição
+  totalCost     Decimal?     @db.Decimal(15, 2) // TRUNC(qtd × unitCost, 2)
+  unitPrice     Decimal?     @db.Decimal(15, 2) // TRUNC(unitCost × (1 + BDI), 2)
+  totalPrice    Decimal?     @db.Decimal(15, 2) // TRUNC(qtd × unitPrice, 2)
   /// Item de mero fornecimento → usa supplyBdi do orçamento
   isSupplyItem  Boolean      @default(false)
 
