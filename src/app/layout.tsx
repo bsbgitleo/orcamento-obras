@@ -1,7 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
 
 export const metadata: Metadata = {
   title: "Orçamento de Obras",
@@ -11,12 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR">
-      <body>
-        <div className="shell">
-          <Sidebar />
-          <main className="main">{children}</main>
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

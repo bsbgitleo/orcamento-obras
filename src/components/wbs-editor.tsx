@@ -26,7 +26,7 @@ export interface WbsLine {
   isLast: boolean;
 }
 
-export function WbsEditor({ budgetId, lines, hasSupplyBdi }: { budgetId: string; lines: WbsLine[]; hasSupplyBdi: boolean }) {
+export function WbsEditor({ budgetId, lines, hasSupplyBdi, readOnly = false }: { budgetId: string; lines: WbsLine[]; hasSupplyBdi: boolean; readOnly?: boolean }) {
   const [adding, setAdding] = useState<{ kind: "STAGE" | "SERVICE"; parentId: string | null } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -36,11 +36,11 @@ export function WbsEditor({ budgetId, lines, hasSupplyBdi }: { budgetId: string;
   return (
     <div>
       <div className="toolbar" style={{ marginBottom: 8 }}>
-        <span className="muted">Clique na quantidade ou na descrição para editar.</span>
-        <div style={{ display: "flex", gap: 8 }}>
+        <span className="muted">{readOnly ? "Seu perfil é somente leitura." : "Clique na quantidade ou na descrição para editar."}</span>
+        {!readOnly && <div style={{ display: "flex", gap: 8 }}>
           <button className="btn small secondary" type="button" onClick={() => run(() => recalculate(budgetId))}>Recalcular</button>
           <button className="btn small" type="button" onClick={() => setAdding({ kind: "STAGE", parentId: null })}>+ Etapa</button>
-        </div>
+        </div>}
       </div>
 
       {adding?.kind === "STAGE" && adding.parentId === null && (
@@ -67,8 +67,8 @@ export function WbsEditor({ budgetId, lines, hasSupplyBdi }: { budgetId: string;
           </thead>
           <tbody>
             {lines.map((l) => (
-              <LineRow key={l.id} line={l} budgetId={budgetId} hasSupplyBdi={hasSupplyBdi}
-                editing={editing === l.id} onEdit={() => setEditing(l.id)} onEditDone={() => setEditing(null)}
+              <LineRow key={l.id} line={l} budgetId={budgetId} hasSupplyBdi={hasSupplyBdi} readOnly={readOnly}
+                editing={editing === l.id} onEdit={() => { if (!readOnly) setEditing(l.id); }} onEditDone={() => setEditing(null)}
                 onAdd={(kind) => setAdding({ kind, parentId: l.id })} run={run} />
             )).flatMap((row, i) => {
               const l = lines[i];
@@ -88,8 +88,8 @@ export function WbsEditor({ budgetId, lines, hasSupplyBdi }: { budgetId: string;
   );
 }
 
-function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, editing, onEdit, onEditDone, onAdd, run }: {
-  line: WbsLine; budgetId: string; hasSupplyBdi: boolean; editing: boolean;
+function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, readOnly, editing, onEdit, onEditDone, onAdd, run }: {
+  line: WbsLine; budgetId: string; hasSupplyBdi: boolean; readOnly: boolean; editing: boolean;
   onEdit: () => void; onEditDone: () => void; onAdd: (kind: "STAGE" | "SERVICE") => void; run: (fn: () => Promise<unknown>) => void;
 }) {
   void _budgetId;
@@ -111,18 +111,20 @@ function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, editing, onEdit, 
         )}
       </td>
       <td>{l.unit ?? ""}</td>
-      <td className="num">{isStage ? "" : <QuantityCell nodeId={l.id} value={l.quantity ?? "0"} />}</td>
+      <td className="num">{isStage ? "" : readOnly ? (l.quantity ?? "0").replace(".", ",") : <QuantityCell nodeId={l.id} value={l.quantity ?? "0"} />}</td>
       <td className="num">{isStage ? "" : brl(l.unitCost)}</td>
       <td className="num">{brl(l.totalCost)}</td>
       <td className="num">{isStage ? "" : brl(l.unitPrice)}</td>
       <td className="num"><strong>{brl(l.totalPrice)}</strong></td>
       <td className="row-actions">
+        {readOnly ? null : <>
         {isStage && <button type="button" className="icon" title="Adicionar subetapa" onClick={() => onAdd("STAGE")}>+E</button>}
         {isStage && <button type="button" className="icon" title="Adicionar serviço" onClick={() => onAdd("SERVICE")}>+S</button>}
         {!isStage && hasSupplyBdi && <button type="button" className="icon" title="Alternar mero fornecimento (BDI reduzido)" onClick={() => run(() => toggleSupplyItem(l.id))}>BDI</button>}
         <button type="button" className="icon" title="Mover para cima" disabled={l.isFirst} onClick={() => run(() => moveNode(l.id, "UP"))}>↑</button>
         <button type="button" className="icon" title="Mover para baixo" disabled={l.isLast} onClick={() => run(() => moveNode(l.id, "DOWN"))}>↓</button>
         <button type="button" className="icon danger" title="Excluir" onClick={() => { if (confirm(isStage ? "Excluir esta etapa e tudo que está dentro dela?" : "Excluir este serviço?")) run(() => deleteNode(l.id)); }}>✕</button>
+        </>}
       </td>
     </tr>
   );

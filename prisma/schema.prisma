@@ -79,10 +79,77 @@ enum TcuWorkType {
   FORNECIMENTO_MATERIAIS_EQUIPAMENTOS
 }
 
+// ───────────────────────── Empresa e usuários (SaaS, decisões #30 e #35) ─────────────────────────
+
+/// Papel do usuário na empresa. MANAGER administra usuários e aprova orçamentos.
+enum Role {
+  MANAGER // gestor: aprova orçamentos, administra a empresa e os usuários
+  ESTIMATOR // orçamentista: cria e edita orçamentos e cadastros
+  VIEWER // leitura
+}
+
+model Company {
+  id            String                 @id @default(cuid())
+  name          String
+  document      String? // CNPJ
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  memberships   Membership[]
+  sessions      Session[]
+  clients       Client[]
+  bdiProfiles   BdiProfile[]
+  socialCharges SocialChargesProfile[]
+  priceTables   PriceTable[]
+  projects      Project[]
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  email              String       @unique
+  name               String
+  passwordHash       String
+  /// Obriga a trocar a senha no próximo login (usuário convidado com senha inicial)
+  mustChangePassword Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  memberships        Membership[]
+  sessions           Session[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      Role     @default(ESTIMATOR)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+/// Sessão em cookie; guarda só o hash SHA-256 do token.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([companyId])
+}
+
 // ───────────────────────── Cadastros ─────────────────────────
 
 model Client {
   id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name      String
   document  String? // CNPJ/CPF
   email     String?
@@ -91,11 +158,15 @@ model Client {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   projects  Project[]
+
+  @@index([companyId])
 }
 
 /// BDI nomeado e reutilizável. Percentuais em %, ex.: 4.0000 = 4 %.
 model BdiProfile {
   id                    String      @id @default(cuid())
+  companyId             String
+  company               Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name                  String
   workType              TcuWorkType @default(EDIFICACOES)
   centralAdministration Decimal     @db.Decimal(7, 4)
@@ -115,11 +186,15 @@ model BdiProfile {
   updatedAt             DateTime    @updatedAt
   budgetsAsMain         Budget[]    @relation("BudgetMainBdi")
   budgetsAsSupply       Budget[]    @relation("BudgetSupplyBdi")
+
+  @@index([companyId])
 }
 
 /// Tabela de encargos sociais reutilizável. Percentuais em %.
 model SocialChargesProfile {
   id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name       String
   regime     TaxRegime
   hourlyPct  Decimal   @db.Decimal(7, 4) // horista
@@ -128,6 +203,8 @@ model SocialChargesProfile {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   budgets    Budget[]
+
+  @@index([companyId])
 }
 
 // ───────────────────────── Base de preços ─────────────────────────
@@ -135,6 +212,9 @@ model SocialChargesProfile {
 /// Uma tabela de preços = origem + UF + mês de referência + regime (rastreabilidade).
 model PriceTable {
   id                   String        @id @default(cuid())
+  /// null = base oficial compartilhada por todas as empresas; preenchido = base própria da empresa
+  companyId            String?
+  company              Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   origin               PriceOrigin
   uf                   String        @db.Char(2)
   referenceMonth       String        @db.Char(7) // "2026-10"
@@ -148,7 +228,8 @@ model PriceTable {
   compositions         Composition[]
   budgets              Budget[]
 
-  @@unique([origin, uf, referenceMonth, regime])
+  @@unique([companyId, origin, uf, referenceMonth, regime])
+  @@index([companyId])
 }
 
 model Input {
@@ -229,7 +310,9 @@ model CompositionItem {
 
 model Project {
   id              String          @id @default(cuid())
-  code            String          @unique // gerado automaticamente
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code            String // gerado automaticamente, único por empresa
   name            String
   type            ProjectType
   category        ProjectCategory
@@ -247,6 +330,7 @@ model Project {
   updatedAt       DateTime        @updatedAt
   budgets         Budget[]
 
+  @@unique([companyId, code])
   @@index([clientId])
 }
 

@@ -6,19 +6,22 @@ import { prisma } from "@/lib/prisma";
 import { nextProjectCode } from "@/lib/project-code";
 import { parseForm, type ActionState } from "@/lib/forms";
 import { newBudgetSchema } from "@/lib/schemas/budget";
+import { requireEditor } from "@/lib/auth/require";
 import { Prisma } from "@/generated/prisma/client";
 
 export async function createBudget(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const ctx = await requireEditor();
+  const companyId = ctx.company.id;
   const r = parseForm(newBudgetSchema, fd);
   if (!r.ok) return r.state;
   const d = r.data;
 
-  // Referential checks (the form lists only valid ids, but the action is reachable directly)
+  // Referential checks, scoped to the company (the action is reachable directly)
   const [table, bdi, charges, client] = await Promise.all([
-    prisma.priceTable.findUnique({ where: { id: d.priceTableId } }),
-    prisma.bdiProfile.findUnique({ where: { id: d.bdiId } }),
-    prisma.socialChargesProfile.findUnique({ where: { id: d.socialChargesId } }),
-    d.clientId ? prisma.client.findUnique({ where: { id: d.clientId } }) : Promise.resolve(null),
+    prisma.priceTable.findFirst({ where: { id: d.priceTableId, OR: [{ companyId: null }, { companyId }] } }),
+    prisma.bdiProfile.findFirst({ where: { id: d.bdiId, companyId } }),
+    prisma.socialChargesProfile.findFirst({ where: { id: d.socialChargesId, companyId } }),
+    d.clientId ? prisma.client.findFirst({ where: { id: d.clientId, companyId } }) : Promise.resolve(null),
   ]);
   const fieldErrors: Record<string, string> = {};
   if (!table) fieldErrors.priceTableId = "Base de preços não encontrada";
@@ -34,12 +37,12 @@ export async function createBudget(_prev: ActionState, fd: FormData): Promise<Ac
   let projectId: string | null = null;
   // Retry on code collision (two users creating at once)
   for (let attempt = 0; attempt < 3 && !projectId; attempt++) {
-    const codes = (await prisma.project.findMany({ select: { code: true } })).map((p) => p.code);
+    const codes = (await prisma.project.findMany({ where: { companyId }, select: { code: true } })).map((p) => p.code);
     const code = nextProjectCode(codes);
     try {
       const project = await prisma.project.create({
         data: {
-          code, name: d.name, type: d.type, category: d.category, uf: d.uf, address: d.address,
+          companyId, code, name: d.name, type: d.type, category: d.category, uf: d.uf, address: d.address,
           clientId: d.clientId, deadlineDays: d.deadlineDays,
           biddingModality: isPublic ? d.biddingModality : null,
           biddingNumber: isPublic ? d.biddingNumber : null,

@@ -12,13 +12,14 @@ interface Props {
   stages: ScheduleStage[];
   initialMonths: number;
   initialCells: { nodeId: string; month: number; percent: string }[];
+  readOnly?: boolean;
 }
 
 const toInput = (s: string) => (s === "0" ? "" : s.replace(".", ","));
 const toDec = (s: string) => (s.trim() === "" ? "0" : s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s);
 const fmtPct = (v: { toFixed(n: number): string }) => v.toFixed(2).replace(".", ",") + " %";
 
-export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells }: Props) {
+export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells, readOnly = false }: Props) {
   const [state, action] = useActionState<ActionState, FormData>(saveSchedule.bind(null, budgetId), idle);
   const [months, setMonths] = useState(initialMonths);
   const [grid, setGrid] = useState<Record<string, string>>(() =>
@@ -49,11 +50,12 @@ export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells }
   return (
     <form action={action}>
       <FormMessage state={state} />
+      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0 }}>
       <div className="toolbar">
         <label className="checkbox">Duração (meses):&nbsp;
           <input type="number" name="months" min={1} max={60} value={months} onChange={(e) => setMonths(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} style={{ width: 80 }} />
         </label>
-        <SubmitButton>Salvar cronograma</SubmitButton>
+        {!readOnly && <SubmitButton>Salvar cronograma</SubmitButton>}
       </div>
       {result.incompleteRows > 0 && <div className="form-error">{result.incompleteRows} etapa(s) com percentual diferente de 100 %. Em obra pública, cada etapa deve somar 100 %.</div>}
 
@@ -106,6 +108,7 @@ export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells }
           </tfoot>
         </table>
       </div>
+      </fieldset>
       <p className="muted" style={{ marginTop: 10 }}>Valores = preço de venda da etapa × %. O último mês de cada etapa recebe a diferença de centavos para a soma fechar exatamente.</p>
     </form>
   );

@@ -12,8 +12,8 @@ import type { TaxRegime } from "../src/generated/prisma/enums";
 const [uf = "DF", referenceMonth = "2026-10", regime = "NAO_DESONERADO"] = process.argv.slice(2);
 
 async function main() {
-  const table = await prisma.priceTable.findUnique({
-    where: { origin_uf_referenceMonth_regime: { origin: "SINAPI", uf, referenceMonth, regime: regime as TaxRegime } },
+  const table = await prisma.priceTable.findFirst({
+    where: { companyId: null, origin: "SINAPI", uf, referenceMonth, regime: regime as TaxRegime },
   });
   if (!table) throw new Error("Tabela não encontrada");
   const source: PriceSource = { origin: "SINAPI", uf, referenceMonth, regime: regime as PriceSource["regime"] };

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import Decimal from "decimal.js";
 import { prisma } from "@/lib/prisma";
 import type { ActionState } from "@/lib/forms";
+import { requireEditor } from "@/lib/auth/require";
 
 const MAX_MONTHS = 60;
 
@@ -23,7 +24,9 @@ function parsePct(raw: string): string | null {
  * works need 100 %, but partial saving is useful while editing).
  */
 export async function saveSchedule(budgetId: string, _prev: ActionState, fd: FormData): Promise<ActionState> {
-  const budget = await prisma.budget.findUniqueOrThrow({ where: { id: budgetId }, select: { projectId: true } });
+  const ctx = await requireEditor();
+  const budget = await prisma.budget.findFirst({ where: { id: budgetId, project: { companyId: ctx.company.id } }, select: { projectId: true } });
+  if (!budget) return { status: "error", message: "Orçamento não encontrado." };
   const months = Number(fd.get("months"));
   if (!Number.isInteger(months) || months < 1 || months > MAX_MONTHS) {
     return { status: "error", message: `Duração deve ser um número inteiro de 1 a ${MAX_MONTHS} meses.` };

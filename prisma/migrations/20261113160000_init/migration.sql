@@ -31,11 +31,62 @@ CREATE TYPE "CompositionItemType" AS ENUM ('INSUMO', 'COMPOSICAO_AUXILIAR');
 CREATE TYPE "WbsNodeKind" AS ENUM ('STAGE', 'SERVICE');
 
 -- CreateEnum
+CREATE TYPE "Role" AS ENUM ('MANAGER', 'ESTIMATOR', 'VIEWER');
+
+-- CreateEnum
 CREATE TYPE "TcuWorkType" AS ENUM ('EDIFICACOES', 'RODOVIAS_FERROVIAS', 'REDES_AGUA_ESGOTO', 'PORTUARIAS_MARITIMAS_FLUVIAIS', 'ESTACOES_REDES_ENERGIA_ELETRICA', 'FORNECIMENTO_MATERIAIS_EQUIPAMENTOS');
+
+-- CreateTable
+CREATE TABLE "Company" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "document" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Company_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Membership" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "role" "Role" NOT NULL DEFAULT 'ESTIMATOR',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Membership_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Session" (
+    "id" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Client" (
     "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "document" TEXT,
     "email" TEXT,
@@ -50,6 +101,7 @@ CREATE TABLE "Client" (
 -- CreateTable
 CREATE TABLE "BdiProfile" (
     "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "workType" "TcuWorkType" NOT NULL DEFAULT 'EDIFICACOES',
     "centralAdministration" DECIMAL(7,4) NOT NULL,
@@ -73,6 +125,7 @@ CREATE TABLE "BdiProfile" (
 -- CreateTable
 CREATE TABLE "SocialChargesProfile" (
     "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "regime" "TaxRegime" NOT NULL,
     "hourlyPct" DECIMAL(7,4) NOT NULL,
@@ -87,6 +140,7 @@ CREATE TABLE "SocialChargesProfile" (
 -- CreateTable
 CREATE TABLE "PriceTable" (
     "id" TEXT NOT NULL,
+    "companyId" TEXT,
     "origin" "PriceOrigin" NOT NULL,
     "uf" CHAR(2) NOT NULL,
     "referenceMonth" CHAR(7) NOT NULL,
@@ -150,6 +204,7 @@ CREATE TABLE "CompositionItem" (
 -- CreateTable
 CREATE TABLE "Project" (
     "id" TEXT NOT NULL,
+    "companyId" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "type" "ProjectType" NOT NULL,
@@ -223,7 +278,19 @@ CREATE TABLE "ScheduleEntry" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PriceTable_origin_uf_referenceMonth_regime_key" ON "PriceTable"("origin", "uf", "referenceMonth", "regime");
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "Membership_userId_companyId_key" ON "Membership"("userId", "companyId");
+CREATE INDEX "Membership_companyId_idx" ON "Membership"("companyId");
+CREATE UNIQUE INDEX "Session_tokenHash_key" ON "Session"("tokenHash");
+CREATE INDEX "Session_userId_idx" ON "Session"("userId");
+CREATE INDEX "Session_companyId_idx" ON "Session"("companyId");
+CREATE INDEX "Client_companyId_idx" ON "Client"("companyId");
+CREATE INDEX "BdiProfile_companyId_idx" ON "BdiProfile"("companyId");
+CREATE INDEX "SocialChargesProfile_companyId_idx" ON "SocialChargesProfile"("companyId");
+CREATE INDEX "PriceTable_companyId_idx" ON "PriceTable"("companyId");
+
+-- CreateIndex (NULLS NOT DISTINCT: só uma base oficial — companyId NULL — por origem/UF/mês/regime)
+CREATE UNIQUE INDEX "PriceTable_companyId_origin_uf_referenceMonth_regime_key" ON "PriceTable"("companyId", "origin", "uf", "referenceMonth", "regime") NULLS NOT DISTINCT;
 
 -- CreateIndex
 CREATE INDEX "Input_description_idx" ON "Input"("description");
@@ -241,7 +308,7 @@ CREATE UNIQUE INDEX "Composition_priceTableId_code_key" ON "Composition"("priceT
 CREATE INDEX "CompositionItem_compositionId_idx" ON "CompositionItem"("compositionId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Project_code_key" ON "Project"("code");
+CREATE UNIQUE INDEX "Project_companyId_code_key" ON "Project"("companyId", "code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Budget_projectId_revision_key" ON "Budget"("projectId", "revision");
@@ -269,6 +336,17 @@ CREATE INDEX "Budget_socialChargesId_idx" ON "Budget"("socialChargesId");
 CREATE INDEX "WbsNode_parentId_idx" ON "WbsNode"("parentId");
 CREATE INDEX "WbsNode_compositionId_idx" ON "WbsNode"("compositionId");
 CREATE INDEX "ScheduleEntry_budgetId_idx" ON "ScheduleEntry"("budgetId");
+
+-- AddForeignKey
+ALTER TABLE "Membership" ADD CONSTRAINT "Membership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Membership" ADD CONSTRAINT "Membership_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Client" ADD CONSTRAINT "Client_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "BdiProfile" ADD CONSTRAINT "BdiProfile_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SocialChargesProfile" ADD CONSTRAINT "SocialChargesProfile_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PriceTable" ADD CONSTRAINT "PriceTable_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Project" ADD CONSTRAINT "Project_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Input" ADD CONSTRAINT "Input_priceTableId_fkey" FOREIGN KEY ("priceTableId") REFERENCES "PriceTable"("id") ON DELETE CASCADE ON UPDATE CASCADE;

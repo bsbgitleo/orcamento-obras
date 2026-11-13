@@ -29,7 +29,7 @@ export async function loadSinapiReference(
   const log = opts.onProgress ?? (() => {});
   const where = { origin: "SINAPI" as const, uf: parsed.uf, referenceMonth: parsed.referenceMonth, regime: parsed.regime };
 
-  const existing = await prisma.priceTable.findUnique({ where: { origin_uf_referenceMonth_regime: where } });
+  const existing = await prisma.priceTable.findFirst({ where: { ...where, companyId: null } });
   if (existing) {
     log(`Removendo tabela anterior ${parsed.uf} ${parsed.referenceMonth} ${parsed.regime}…`);
     await prisma.priceTable.delete({ where: { id: existing.id } }); // cascades

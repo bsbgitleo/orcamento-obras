@@ -6,6 +6,23 @@ import { prisma } from "@/lib/prisma";
 import { decimalString, parseForm, requiredText, type ActionState } from "@/lib/forms";
 import { recalculateBudget } from "@/lib/pricing/recalculate-budget";
 import { searchCompositions, type SearchHit, type SearchMode } from "@/lib/compositions/search";
+import { requireActionAuth, requireEditor } from "@/lib/auth/require";
+
+/** Budget of the signed-in company, or throws. */
+async function ownBudget(budgetId: string, edit = true) {
+  const ctx = edit ? await requireEditor() : await requireActionAuth();
+  const b = await prisma.budget.findFirst({ where: { id: budgetId, project: { companyId: ctx.company.id } }, select: { id: true, projectId: true, priceTableId: true } });
+  if (!b) throw new Error("Orçamento não encontrado.");
+  return b;
+}
+
+/** Node of a budget of the signed-in company, or throws. */
+async function ownNode(nodeId: string) {
+  const ctx = await requireEditor();
+  const n = await prisma.wbsNode.findFirst({ where: { id: nodeId, budget: { project: { companyId: ctx.company.id } } } });
+  if (!n) throw new Error("Item não encontrado.");
+  return n;
+}
 
 async function projectIdOf(budgetId: string): Promise<string> {
   const b = await prisma.budget.findUniqueOrThrow({ where: { id: budgetId }, select: { projectId: true } });
@@ -25,7 +42,7 @@ async function nextPosition(budgetId: string, parentId: string | null): Promise<
 
 /** Composition search for the "add service" picker (callable from client components). */
 export async function searchCompositionsAction(budgetId: string, query: string, mode: SearchMode): Promise<SearchHit[]> {
-  const b = await prisma.budget.findUniqueOrThrow({ where: { id: budgetId }, select: { priceTableId: true } });
+  const b = await ownBudget(budgetId, false);
   return searchCompositions(prisma, { priceTableIds: [b.priceTableId], query, mode, limit: 40 });
 }
 
@@ -34,6 +51,7 @@ export async function searchCompositionsAction(budgetId: string, query: string, 
 const stageSchema = z.object({ description: requiredText("Descrição") });
 
 export async function addStage(budgetId: string, parentId: string | null, _prev: ActionState, fd: FormData): Promise<ActionState> {
+  await ownBudget(budgetId);
   const r = parseForm(stageSchema, fd);
   if (!r.ok) return r.state;
   if (parentId) {
@@ -56,11 +74,11 @@ const serviceSchema = z.object({
 });
 
 export async function addService(budgetId: string, parentId: string, _prev: ActionState, fd: FormData): Promise<ActionState> {
+  const budget = await ownBudget(budgetId);
   const r = parseForm(serviceSchema, fd);
   if (!r.ok) return r.state;
-  const [parent, budget, comp] = await Promise.all([
+  const [parent, comp] = await Promise.all([
     prisma.wbsNode.findUnique({ where: { id: parentId } }),
-    prisma.budget.findUniqueOrThrow({ where: { id: budgetId }, select: { priceTableId: true } }),
     prisma.composition.findUnique({ where: { id: r.data.compositionId } }),
   ]);
   if (!parent || parent.budgetId !== budgetId || parent.kind !== "STAGE") return { status: "error", message: "Serviços só podem ser adicionados dentro de uma etapa." };
@@ -81,7 +99,7 @@ const quantitySchema = z.object({ quantity: decimalString({ min: 0, label: "Quan
 export async function updateQuantity(nodeId: string, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const r = parseForm(quantitySchema, fd);
   if (!r.ok) return r.state;
-  const node = await prisma.wbsNode.findUniqueOrThrow({ where: { id: nodeId } });
+  const node = await ownNode(nodeId);
   if (node.kind !== "SERVICE") return { status: "error", message: "Só serviços têm quantidade." };
   await prisma.wbsNode.update({ where: { id: nodeId }, data: { quantity: r.data.quantity } });
   return finish(node.budgetId);
@@ -92,12 +110,13 @@ const descriptionSchema = z.object({ description: requiredText("Descrição") })
 export async function updateDescription(nodeId: string, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const r = parseForm(descriptionSchema, fd);
   if (!r.ok) return r.state;
+  await ownNode(nodeId);
   const node = await prisma.wbsNode.update({ where: { id: nodeId }, data: { description: r.data.description } });
   return finish(node.budgetId);
 }
 
 export async function toggleSupplyItem(nodeId: string): Promise<void> {
-  const node = await prisma.wbsNode.findUniqueOrThrow({ where: { id: nodeId } });
+  const node = await ownNode(nodeId);
   await prisma.wbsNode.update({ where: { id: nodeId }, data: { isSupplyItem: !node.isSupplyItem } });
   await finish(node.budgetId);
 }
@@ -105,7 +124,7 @@ export async function toggleSupplyItem(nodeId: string): Promise<void> {
 // ─── Mover / excluir ───
 
 export async function moveNode(nodeId: string, direction: "UP" | "DOWN"): Promise<void> {
-  const node = await prisma.wbsNode.findUniqueOrThrow({ where: { id: nodeId } });
+  const node = await ownNode(nodeId);
   const siblings = await prisma.wbsNode.findMany({ where: { budgetId: node.budgetId, parentId: node.parentId }, orderBy: { position: "asc" } });
   const i = siblings.findIndex((s) => s.id === nodeId);
   const j = direction === "UP" ? i - 1 : i + 1;
@@ -121,7 +140,7 @@ export async function moveNode(nodeId: string, direction: "UP" | "DOWN"): Promis
 }
 
 export async function deleteNode(nodeId: string): Promise<void> {
-  const node = await prisma.wbsNode.findUniqueOrThrow({ where: { id: nodeId } });
+  const node = await ownNode(nodeId);
   await prisma.wbsNode.delete({ where: { id: nodeId } }); // children cascade
   // Close the gap in positions
   const siblings = await prisma.wbsNode.findMany({ where: { budgetId: node.budgetId, parentId: node.parentId }, orderBy: { position: "asc" } });
@@ -130,5 +149,6 @@ export async function deleteNode(nodeId: string): Promise<void> {
 }
 
 export async function recalculate(budgetId: string): Promise<void> {
+  await ownBudget(budgetId);
   await finish(budgetId);
 }
