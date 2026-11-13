@@ -3,13 +3,13 @@
 import { useActionState, useMemo, useState } from "react";
 import { saveSchedule } from "@/lib/actions/schedule";
 import { idle, type ActionState } from "@/lib/forms";
-import { computeSchedule, linearPercents, type ScheduleStage } from "@/core/schedule";
+import { computeScheduleTree, linearPercents, type ScheduleTreeStage } from "@/core/schedule";
 import { brl } from "@/lib/format";
 import { FormMessage, SubmitButton } from "./form";
 
 interface Props {
   budgetId: string;
-  stages: ScheduleStage[];
+  stages: ScheduleTreeStage[];
   initialMonths: number;
   initialCells: { nodeId: string; month: number; percent: string }[];
   readOnly?: boolean;
@@ -42,7 +42,7 @@ export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells, 
       const d = toDec(v);
       return /^\d+(\.\d+)?$/.test(d) && Number(month) <= months ? [{ nodeId, month: Number(month), percent: d }] : [];
     });
-    return computeSchedule(stages, cells, months);
+    return computeScheduleTree(stages, cells, months);
   }, [grid, months, stages]);
 
   const monthIdx = Array.from({ length: months }, (_, i) => i + 1);
@@ -58,6 +58,7 @@ export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells, 
         {!readOnly && <SubmitButton>Salvar cronograma</SubmitButton>}
       </div>
       {result.incompleteRows > 0 && <div className="form-error">{result.incompleteRows} etapa(s) com percentual diferente de 100 %. Em obra pública, cada etapa deve somar 100 %.</div>}
+      <p className="muted">Preencha os percentuais nas etapas sem subetapas; as etapas-pai mostram a soma. Uma etapa com serviços diretos e subetapas ganha a linha &ldquo;Serviços diretos&rdquo;.</p>
 
       <div style={{ overflowX: "auto" }}>
         <table className="list schedule">
@@ -70,11 +71,14 @@ export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells, 
           </thead>
           <tbody>
             {result.rows.map((row) => (
-              <tr key={row.stage.id} className={row.incomplete ? "incomplete" : undefined}>
+              <tr key={`${row.stage.id}:${row.editable ? "e" : "p"}`} className={row.incomplete ? "incomplete" : undefined} style={row.editable ? undefined : { fontWeight: 600, background: row.level === 1 ? "#f4f6f8" : "#fafbfc" }}>
                 <td className="mono">{row.stage.code}</td>
-                <td>{row.stage.description}</td>
+                <td style={{ paddingLeft: 8 + (row.level - 1) * 18 }}>{row.stage.description}</td>
                 <td className="num">{brl(row.price)}</td>
-                {monthIdx.map((m) => {
+                {!row.editable && monthIdx.map((m) => (
+                  <td key={m} className="num">{row.values[m - 1].isZero() ? <span className="muted">—</span> : <>{fmtPct(row.percents[m - 1])}<div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>{brl(row.values[m - 1])}</div></>}</td>
+                ))}
+                {row.editable && monthIdx.map((m) => {
                   const key = `p_${row.stage.id}_${m}`;
                   const bad = state.status === "error" && state.fieldErrors?.[key];
                   return (
@@ -88,8 +92,10 @@ export function ScheduleEditor({ budgetId, stages, initialMonths, initialCells, 
                 })}
                 <td className="num" style={{ fontWeight: 600, color: row.incomplete ? "var(--danger)" : row.totalPct.eq(100) ? "var(--ok)" : undefined }}>{fmtPct(row.totalPct)}</td>
                 <td className="row-actions">
-                  <button type="button" className="icon" title="Distribuir linearmente" onClick={() => fillLinear(row.stage.id)}>linear</button>
-                  <button type="button" className="icon" title="Limpar linha" onClick={() => clearRow(row.stage.id)}>limpar</button>
+                  {row.editable && <>
+                    <button type="button" className="icon" title="Distribuir linearmente" onClick={() => fillLinear(row.stage.id)}>linear</button>
+                    <button type="button" className="icon" title="Limpar linha" onClick={() => clearRow(row.stage.id)}>limpar</button>
+                  </>}
                 </td>
               </tr>
             ))}

@@ -13,11 +13,21 @@ export default async function SchedulePage(props: PageProps<"/orcamentos/[id]/cr
   const { company, role } = await requireAuth();
   const project = await prisma.project.findFirst({
     where: { id, companyId: company.id },
-    include: { budgets: { orderBy: { revision: "desc" }, take: 1, include: { schedule: true, nodes: { where: { parentId: null, kind: "STAGE" }, orderBy: { position: "asc" } } } } },
+    include: { budgets: { orderBy: { revision: "desc" }, take: 1, include: { schedule: true, nodes: { where: { kind: "STAGE" }, orderBy: { position: "asc" } } } } },
   });
   if (!project) notFound();
   const budget = project.budgets[0];
-  const stages = budget.nodes.map((n) => ({ id: n.id, code: n.code, description: n.description, totalPrice: n.totalPrice?.toString() ?? "0" }));
+  // Stages in display order (pre-order by parentId + position), with level
+  const byParent = new Map<string | null, typeof budget.nodes>();
+  for (const n of budget.nodes) byParent.set(n.parentId, [...(byParent.get(n.parentId) ?? []), n]);
+  const stages: { id: string; parentId: string | null; level: number; code: string; description: string; totalPrice: string }[] = [];
+  const walk = (parentId: string | null, level: number) => {
+    for (const n of (byParent.get(parentId) ?? []).sort((a, b) => a.position - b.position)) {
+      stages.push({ id: n.id, parentId: n.parentId, level, code: n.code, description: n.description, totalPrice: n.totalPrice?.toString() ?? "0" });
+      walk(n.id, level + 1);
+    }
+  };
+  walk(null, 1);
   const cells = budget.schedule.map((s) => ({ nodeId: s.nodeId, month: s.month, percent: s.percent.toString() }));
 
   return (

@@ -19,7 +19,7 @@ function parsePct(raw: string): string | null {
 }
 
 /**
- * Saves the whole schedule grid. Fields: `months` and `p_<nodeId>_<month>`.
+ * Saves the whole schedule grid. Fields: `months` and `p_<nodeId>_<month>` (nodeId = leaf stage).
  * Rows that do not sum to 100 % are saved and flagged on the page (public
  * works need 100 %, but partial saving is useful while editing).
  */
@@ -31,8 +31,10 @@ export async function saveSchedule(budgetId: string, _prev: ActionState, fd: For
   if (!Number.isInteger(months) || months < 1 || months > MAX_MONTHS) {
     return { status: "error", message: `Duração deve ser um número inteiro de 1 a ${MAX_MONTHS} meses.` };
   }
-  const roots = await prisma.wbsNode.findMany({ where: { budgetId, parentId: null, kind: "STAGE" }, select: { id: true } });
-  const rootIds = new Set(roots.map((r) => r.id));
+  // Editable rows = leaf stages at any level, plus the "own services" row of mixed
+  // stages (stored under the parent's id) — decision #37
+  const stages = await prisma.wbsNode.findMany({ where: { budgetId, kind: "STAGE" }, select: { id: true } });
+  const rootIds = new Set(stages.map((s) => s.id));
 
   const entries: { nodeId: string; month: number; percent: string }[] = [];
   const fieldErrors: Record<string, string> = {};
