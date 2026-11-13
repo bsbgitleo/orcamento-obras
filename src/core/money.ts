@@ -14,11 +14,22 @@ export const ZERO = new Decimal(0);
 export const ONE = new Decimal(1);
 export const HUNDRED = new Decimal(100);
 
-/** Scale of unit costs and totals (decision #5: 2 places, ROUND_HALF_UP). */
+/** Scale of unit costs and totals (2 places). */
 export const MONEY_SCALE = 2;
-/** Scale of quantities and coefficients (spec: up to 4 places). */
+/** Scale of quantities and coefficients (spec: up to 4 places; SINAPI coefficients go to 7). */
 export const QUANTITY_SCALE = 4;
 
+/**
+ * Truncates to 2 places (decision #5, revised 2026-11-13): SINAPI computes
+ * TRUNC(coefficient × price, 2) per item and sums — verified against the
+ * official "Analítico com Custo" sheet (ref. 10/2026). This is the rule for
+ * composition items and service totals.
+ */
+export function truncMoney(v: DecimalInput): Decimal {
+  return D(v).toDecimalPlaces(MONEY_SCALE, Decimal.ROUND_DOWN);
+}
+
+/** Rounds to 2 places, half up. Used for display and for values that are not SINAPI item costs (e.g. BDI). */
 export function roundMoney(v: DecimalInput): Decimal {
   return D(v).toDecimalPlaces(MONEY_SCALE, Decimal.ROUND_HALF_UP);
 }

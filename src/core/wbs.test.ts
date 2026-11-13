@@ -35,12 +35,12 @@ describe("numberWbs", () => {
     expect(byId.v2).toBe("4000");
     expect(byId.s11).toBe("4000");
     expect(byId.s1).toBe("4250");
-    expect(byId.v3).toBe("1382.66"); // 30.5 × 45.333 = 1382.6565 → 1382.66
-    expect(byId.s2).toBe("1382.66");
+    expect(byId.v3).toBe("1382.65"); // 30.5 × 45.333 = 1382.6565 → trunca
+    expect(byId.s2).toBe("1382.65");
   });
 
   it("total da obra", () => {
-    expect(wbsTotal(tree).toString()).toBe("5632.66");
+    expect(wbsTotal(tree).toString()).toBe("5632.65");
   });
 });
 

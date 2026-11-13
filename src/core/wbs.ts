@@ -1,7 +1,8 @@
 // src/core/wbs.ts
 // EAP (Estrutura Analítica do Projeto): Obra → Etapas → Subetapas → Serviços,
 // com numeração automática (1, 1.1, 1.1.1) refeita ao mover itens (spec §4.4).
-import { D, ZERO, roundMoney, type Dec, type DecimalInput } from "./money";
+import { ZERO, type Dec, type DecimalInput } from "./money";
+import { serviceTotal } from "./composition";
 
 export interface WbsService {
   kind: "SERVICE";
@@ -37,7 +38,7 @@ export function numberWbs(roots: WbsNode[]): NumberedNode[] {
 
   const visit = (node: WbsNode, prefix: string, level: number): Dec => {
     if (node.kind === "SERVICE") {
-      const total = roundMoney(D(node.quantity).times(node.unitCost));
+      const total = serviceTotal(node.quantity, node.unitCost);
       out.push({ id: node.id, code: prefix, level, kind: "SERVICE", description: node.description, total });
       return total;
     }

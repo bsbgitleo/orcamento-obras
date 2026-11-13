@@ -1,8 +1,16 @@
 // src/core/money.test.ts
 import { describe, expect, it } from "vitest";
-import { D, formatBRL, parseBRL, roundMoney, roundQuantity, sum } from "./money";
+import { D, formatBRL, parseBRL, roundMoney, roundQuantity, sum, truncMoney } from "./money";
 
-describe("roundMoney (decisão #5: 2 casas, ROUND_HALF_UP)", () => {
+describe("truncMoney (decisão #5: itens truncados a 2 casas, como no SINAPI)", () => {
+  it("trunca", () => {
+    expect(truncMoney("1.009").toString()).toBe("1");
+    expect(truncMoney("10.999").toString()).toBe("10.99");
+    expect(truncMoney("0.9864").toString()).toBe("0.98");
+  });
+});
+
+describe("roundMoney (exibição e BDI: ROUND_HALF_UP)", () => {
   it("arredonda meio para cima", () => {
     expect(roundMoney("1.005").toString()).toBe("1.01");
     expect(roundMoney("2.675").toString()).toBe("2.68"); // float daria 2.67

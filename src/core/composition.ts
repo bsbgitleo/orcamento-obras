@@ -1,8 +1,14 @@
 // src/core/composition.ts
-// Custo unitário de composição = Σ (coeficiente × preço unitário do item),
-// com composições auxiliares resolvidas recursivamente (02-modelo-dados-e-regras.md §2).
-// Preço de mão de obra já inclui encargos sociais (padrão SINAPI).
-import { D, ZERO, roundMoney, type Dec, type DecimalInput } from "./money";
+// Custo unitário de composição, seguindo exatamente o método do SINAPI
+// (verificado contra a planilha "Analítico com Custo", ref. 10/2026):
+//
+//   custo_item      = TRUNC(coeficiente × preço_unitário_do_item, 2)
+//   custo_unitário  = Σ custo_item
+//
+// Composições auxiliares entram pelo seu custo unitário já calculado (que, por
+// construção, já é uma soma de valores truncados). Preço de mão de obra já
+// inclui encargos sociais conforme o regime (padrão SINAPI).
+import { D, ZERO, truncMoney, type Dec, type DecimalInput } from "./money";
 
 export type InputKind = "MATERIAL" | "MAO_DE_OBRA" | "EQUIPAMENTO" | "SERVICO";
 
@@ -10,7 +16,7 @@ export interface PriceSource {
   origin: "SINAPI" | "SICRO" | "PROPRIA" | "COTACAO";
   uf: string; // "DF"
   referenceMonth: string; // "2026-10"
-  regime: "DESONERADO" | "NAO_DESONERADO";
+  regime: "DESONERADO" | "NAO_DESONERADO" | "SEM_ENCARGOS";
 }
 
 export interface InputItem {
@@ -19,7 +25,8 @@ export interface InputItem {
   description: string;
   unit: string;
   kind: InputKind;
-  unitPrice: DecimalInput;
+  /** null = insumo sem preço na UF (situação "SEM PREÇO" do SINAPI). */
+  unitPrice: DecimalInput | null;
   source: PriceSource;
 }
 
@@ -49,13 +56,22 @@ export interface CostBreakdown {
   total: Dec;
 }
 
+export interface ItemCost {
+  item: CompositionChild;
+  /** Preço unitário usado (null quando o item não tem preço). */
+  unitPrice: Dec | null;
+  /** TRUNC(coef × preço, 2); ZERO quando sem preço. */
+  cost: Dec;
+}
+
 export interface CompositionCost {
   compositionId: string;
-  /** Custo unitário sem arredondar (precisão interna). */
-  rawUnitCost: Dec;
-  /** Custo unitário arredondado a 2 casas (ROUND_HALF_UP). */
+  /** Custo unitário = Σ TRUNC(coef × preço, 2). Já com 2 casas. */
   unitCost: Dec;
   breakdown: CostBreakdown;
+  items: ItemCost[];
+  /** true quando algum insumo/composição da árvore está sem preço ("SEM CUSTO" no SINAPI). */
+  incomplete: boolean;
 }
 
 export class CompositionCycleError extends Error {
@@ -74,16 +90,6 @@ const emptyBreakdown = (): CostBreakdown => ({
   material: ZERO, labor: ZERO, equipment: ZERO, service: ZERO, total: ZERO,
 });
 
-function addBreakdown(a: CostBreakdown, b: CostBreakdown, factor: Dec): CostBreakdown {
-  return {
-    material: a.material.plus(b.material.times(factor)),
-    labor: a.labor.plus(b.labor.times(factor)),
-    equipment: a.equipment.plus(b.equipment.times(factor)),
-    service: a.service.plus(b.service.times(factor)),
-    total: a.total.plus(b.total.times(factor)),
-  };
-}
-
 function kindToField(kind: InputKind): keyof Omit<CostBreakdown, "total"> {
   switch (kind) {
     case "MATERIAL": return "material";
@@ -91,6 +97,11 @@ function kindToField(kind: InputKind): keyof Omit<CostBreakdown, "total"> {
     case "EQUIPAMENTO": return "equipment";
     case "SERVICO": return "service";
   }
+}
+
+/** Custo de um item da composição: TRUNC(coef × preço, 2). */
+export function itemCost(coefficient: DecimalInput, unitPrice: DecimalInput): Dec {
+  return truncMoney(D(coefficient).times(unitPrice));
 }
 
 export function calculateCompositionCost(
@@ -108,45 +119,54 @@ export function calculateCompositionCost(
   const composition = catalog.getComposition(compositionId);
   if (!composition) throw new MissingReferenceError("composição", compositionId);
 
-  let breakdown = emptyBreakdown();
+  const breakdown = emptyBreakdown();
+  const items: ItemCost[] = [];
+  let incomplete = false;
   const nextStack = [...stack, compositionId];
 
   for (const item of composition.items) {
-    const coef = D(item.coefficient);
     if (item.type === "INSUMO") {
       const input = catalog.getInput(item.inputId);
       if (!input) throw new MissingReferenceError("insumo", item.inputId);
-      const cost = coef.times(input.unitPrice);
+      if (input.unitPrice === null) {
+        incomplete = true;
+        items.push({ item, unitPrice: null, cost: ZERO });
+        continue;
+      }
+      const cost = itemCost(item.coefficient, input.unitPrice);
       const field = kindToField(input.kind);
-      breakdown = { ...breakdown, [field]: breakdown[field].plus(cost), total: breakdown.total.plus(cost) };
+      breakdown[field] = breakdown[field].plus(cost);
+      breakdown.total = breakdown.total.plus(cost);
+      items.push({ item, unitPrice: D(input.unitPrice), cost });
     } else {
       const child = calculateCompositionCost(item.compositionId, catalog, cache, nextStack);
-      // Auxiliary compositions enter with their *rounded* unit cost, as SINAPI does.
-      const childUnit = child.unitCost;
-      const share = child.rawUnitCost.isZero()
-        ? emptyBreakdown()
-        : {
-            material: child.breakdown.material.div(child.rawUnitCost).times(childUnit),
-            labor: child.breakdown.labor.div(child.rawUnitCost).times(childUnit),
-            equipment: child.breakdown.equipment.div(child.rawUnitCost).times(childUnit),
-            service: child.breakdown.service.div(child.rawUnitCost).times(childUnit),
-            total: childUnit,
-          };
-      breakdown = addBreakdown(breakdown, share, coef);
+      if (child.incomplete) incomplete = true;
+      const cost = itemCost(item.coefficient, child.unitCost);
+      // Distribui o custo truncado na mesma proporção da auxiliar (só para relatório).
+      if (!child.unitCost.isZero()) {
+        const ratio = cost.div(child.unitCost);
+        breakdown.material = breakdown.material.plus(child.breakdown.material.times(ratio));
+        breakdown.labor = breakdown.labor.plus(child.breakdown.labor.times(ratio));
+        breakdown.equipment = breakdown.equipment.plus(child.breakdown.equipment.times(ratio));
+        breakdown.service = breakdown.service.plus(child.breakdown.service.times(ratio));
+      }
+      breakdown.total = breakdown.total.plus(cost);
+      items.push({ item, unitPrice: child.unitCost, cost });
     }
   }
 
   const result: CompositionCost = {
     compositionId,
-    rawUnitCost: breakdown.total,
-    unitCost: roundMoney(breakdown.total),
+    unitCost: breakdown.total,
     breakdown,
+    items,
+    incomplete,
   };
   cache.set(compositionId, result);
   return result;
 }
 
-/** Custo total do serviço = quantidade × custo unitário (arredondado a 2 casas). */
+/** Custo total do serviço = TRUNC(quantidade × custo unitário, 2) — mesma regra dos itens. */
 export function serviceTotal(quantity: DecimalInput, unitCost: DecimalInput): Dec {
-  return roundMoney(D(quantity).times(unitCost));
+  return truncMoney(D(quantity).times(unitCost));
 }
