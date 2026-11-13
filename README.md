@@ -17,8 +17,14 @@ src/core/        núcleo de cálculo puro (sem banco, sem UI) — 100 % testado
   composition.ts   custo unitário de composição (recursivo, com divisão material/MO/equip.)
   abc-curve.ts     curva ABC (A ≤ 80 %, B ≤ 95 %, C)
   wbs.ts           EAP com numeração automática e movimentação de itens
+src/import/sinapi/ importador das planilhas da Caixa (streaming, exceljs)
+  parse-reference.ts   SINAPI_Referência_AAAA_MM.xlsx → insumos, composições, árvore analítica
+  parse-labor-share.ts SINAPI_mao_de_obra_AAAA_MM.xlsx → % de mão de obra por composição
+  load.ts              grava uma PriceTable (origem + UF + mês + regime)
+scripts/           CLIs: import-sinapi, validate-sinapi, check-price-table
 src/lib/prisma.ts  cliente Prisma (singleton)
 prisma/schema.prisma
+prisma/migrations/ migração inicial (SQL)
 ```
 
 ## Rodando
@@ -29,6 +35,22 @@ npm install                 # roda prisma generate
 npm run db:migrate          # cria o banco
 npm run dev
 ```
+
+## Importando o SINAPI
+
+Baixe no site da Caixa as planilhas do mês (ex.: `SINAPI_Referência_2026_10.xlsx` e
+`SINAPI_mao_de_obra_2026_10.xlsx`) e rode:
+
+```bash
+npm run sinapi:import -- --ref SINAPI_Referência_2026_10.xlsx --labor SINAPI_mao_de_obra_2026_10.xlsx --uf DF --regime ALL
+npm run sinapi:check -- DF 2026-10 NAO_DESONERADO   # recalcula tudo e compara com o custo publicado
+```
+
+Regras do SINAPI reproduzidas (verificadas centavo a centavo nas 10.710 composições do DF, 10/2026):
+- custo do item = `TRUNC(coeficiente × preço, 2)`; custo da composição = soma dos itens;
+- composição auxiliar entra pelo custo já calculado;
+- preço em branco na UF → usa o preço de SP (gravado em `priceFallbackUf`);
+- insumo sem preço em lugar nenhum → composição "SEM CUSTO" (custo publicado = 0; gravamos `null`).
 
 ## Testes
 
@@ -43,4 +65,4 @@ Todas as regras de cálculo têm teste. O BDI é validado contra o exemplo do gu
 - Código e commits em inglês; interface em PT-BR.
 - Dinheiro e quantidades sempre em `Decimal` (nunca `number`).
 - Todo preço tem fonte, UF, mês de referência e regime (desonerado / não desonerado).
-- Custos unitários: 2 casas, arredondamento meio para cima. BDI aplicado pelo percentual declarado (2 casas), não pelo fator bruto.
+- Custos de itens e serviços: 2 casas, **truncados** (regra do SINAPI). `roundMoney` só para exibição e BDI. BDI aplicado pelo percentual declarado (2 casas), não pelo fator bruto.

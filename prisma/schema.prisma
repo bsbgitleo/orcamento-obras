@@ -42,6 +42,7 @@ enum BudgetStatus {
 enum TaxRegime {
   DESONERADO
   NAO_DESONERADO
+  SEM_ENCARGOS // tabelas ISE/CSE do SINAPI (mão de obra sem encargos sociais)
 }
 
 enum PriceOrigin {
@@ -148,21 +149,29 @@ model PriceTable {
 }
 
 model Input {
-  id           String            @id @default(cuid())
-  priceTableId String
-  priceTable   PriceTable        @relation(fields: [priceTableId], references: [id], onDelete: Cascade)
-  code         String
-  description  String
-  unit         String
-  kind         InputKind
-  unitPrice    Decimal           @db.Decimal(15, 2)
+  id              String            @id @default(cuid())
+  priceTableId    String
+  priceTable      PriceTable        @relation(fields: [priceTableId], references: [id], onDelete: Cascade)
+  code            String
+  description     String
+  unit            String
+  kind            InputKind
+  /// null = sem preço nesta UF/mês ("SEM PREÇO" no SINAPI)
+  unitPrice       Decimal?          @db.Decimal(15, 2)
+  /// Classificação original da fonte (SINAPI: MATERIAL, MAO DE OBRA, EQUIPAMENTO (AQUISIÇÃO), ENCARGOS COMPLEMENTARES...)
+  sourceClass     String?
+  /// Origem de preço SINAPI: C = coletado, CR = coef. de representatividade, AS = atribuído por similaridade
+  priceOrigin     String?
+  /// UF de onde o preço foi herdado quando a UF pedida estava em branco (o SINAPI usa SP)
+  priceFallbackUf String?           @db.Char(2)
   /// Nível na hierarquia da Lei 14.133 art. 23 §2º (1–4); null em obra privada
-  sourceLevel  Int?
-  sourceNote   String? // site/data-hora de acesso, cotação etc.
-  usages       CompositionItem[] @relation("ItemInput")
+  sourceLevel     Int?
+  sourceNote      String? // site/data-hora de acesso, cotação etc.
+  usages          CompositionItem[] @relation("ItemInput")
 
   @@unique([priceTableId, code])
   @@index([description])
+  @@index([priceTableId])
 }
 
 model Composition {
@@ -172,6 +181,14 @@ model Composition {
   code          String
   description   String
   unit          String
+  /// Grupo da fonte (SINAPI: "Acessibilidade", "Alvenaria"...)
+  group         String?
+  /// Custo unitário publicado pela fonte (CSD/CCD/CSE) — usado para conferir o cálculo
+  referenceCost Decimal?          @db.Decimal(15, 2)
+  /// Percentual de mão de obra no custo (relatório "mão de obra" do SINAPI), fração 0–1
+  laborShare    Decimal?          @db.Decimal(7, 4)
+  /// Situação na fonte (SINAPI: COM CUSTO | SEM CUSTO | EM ESTUDO)
+  sourceStatus  String?
   /// Composição própria derivada de uma oficial (TCU §3): guarda a origem e a justificativa.
   derivedFromId String?
   derivedFrom   Composition?      @relation("Derivation", fields: [derivedFromId], references: [id])
@@ -183,6 +200,8 @@ model Composition {
 
   @@unique([priceTableId, code])
   @@index([description])
+  @@index([priceTableId])
+  @@index([derivedFromId])
 }
 
 model CompositionItem {
@@ -194,9 +213,11 @@ model CompositionItem {
   input              Input?              @relation("ItemInput", fields: [inputId], references: [id])
   childCompositionId String?
   childComposition   Composition?        @relation("ChildComposition", fields: [childCompositionId], references: [id])
-  coefficient        Decimal             @db.Decimal(15, 4)
+  coefficient        Decimal             @db.Decimal(18, 7) // SINAPI publica até 7 casas
 
   @@index([compositionId])
+  @@index([inputId])
+  @@index([childCompositionId])
 }
 
 // ───────────────────────── Obra e orçamento ─────────────────────────
@@ -220,6 +241,8 @@ model Project {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   budgets         Budget[]
+
+  @@index([clientId])
 }
 
 /// Uma revisão do orçamento (R0, R1, ...).
@@ -255,6 +278,10 @@ model Budget {
   updatedAt DateTime        @updatedAt
 
   @@unique([projectId, revision])
+  @@index([priceTableId])
+  @@index([bdiId])
+  @@index([supplyBdiId])
+  @@index([socialChargesId])
 }
 
 /// EAP: etapas (STAGE) e serviços (SERVICE) na mesma tabela, em árvore.
@@ -276,7 +303,7 @@ model WbsNode {
   composition   Composition? @relation(fields: [compositionId], references: [id])
   unit          String?
   quantity      Decimal?     @db.Decimal(15, 4)
-  unitCost      Decimal?     @db.Decimal(15, 2) // calculado, 2 casas ROUND_HALF_UP
+  unitCost      Decimal?     @db.Decimal(15, 2) // calculado: Σ TRUNC(coef × preço, 2)
   totalCost     Decimal?     @db.Decimal(15, 2)
   /// Item de mero fornecimento → usa supplyBdi do orçamento
   isSupplyItem  Boolean      @default(false)
@@ -285,6 +312,8 @@ model WbsNode {
 
   @@unique([budgetId, parentId, position])
   @@index([budgetId])
+  @@index([parentId])
+  @@index([compositionId])
 }
 
 /// Cronograma físico-financeiro: percentual por mês por etapa raiz.
@@ -298,4 +327,5 @@ model ScheduleEntry {
   percent  Decimal @db.Decimal(7, 4)
 
   @@unique([nodeId, month])
+  @@index([budgetId])
 }

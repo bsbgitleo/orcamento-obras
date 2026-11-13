@@ -18,6 +18,8 @@ export const HUNDRED = new Decimal(100);
 export const MONEY_SCALE = 2;
 /** Scale of quantities and coefficients (spec: up to 4 places; SINAPI coefficients go to 7). */
 export const QUANTITY_SCALE = 4;
+/** Scale of composition coefficients (SINAPI publishes up to 7 places). */
+export const COEFFICIENT_SCALE = 7;
 
 /**
  * Truncates to 2 places (decision #5, revised 2026-11-13): SINAPI computes
