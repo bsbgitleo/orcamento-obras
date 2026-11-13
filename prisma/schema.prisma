@@ -134,16 +134,19 @@ model SocialChargesProfile {
 
 /// Uma tabela de preços = origem + UF + mês de referência + regime (rastreabilidade).
 model PriceTable {
-  id             String        @id @default(cuid())
-  origin         PriceOrigin
-  uf             String        @db.Char(2)
-  referenceMonth String        @db.Char(7) // "2026-10"
-  regime         TaxRegime
-  importedAt     DateTime?
-  sourceFile     String?
-  inputs         Input[]
-  compositions   Composition[]
-  budgets        Budget[]
+  id                   String        @id @default(cuid())
+  origin               PriceOrigin
+  uf                   String        @db.Char(2)
+  referenceMonth       String        @db.Char(7) // "2026-10"
+  regime               TaxRegime
+  importedAt           DateTime?
+  sourceFile           String?
+  /// Encargos sociais sobre a mão de obra publicados com a tabela (fração, ex.: 1.1008 = 110,08 %)
+  socialChargesHourly  Decimal?      @db.Decimal(7, 4)
+  socialChargesMonthly Decimal?      @db.Decimal(7, 4)
+  inputs               Input[]
+  compositions         Composition[]
+  budgets              Budget[]
 
   @@unique([origin, uf, referenceMonth, regime])
 }

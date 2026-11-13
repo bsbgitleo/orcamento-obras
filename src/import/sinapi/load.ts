@@ -36,7 +36,11 @@ export async function loadSinapiReference(
   }
 
   const table = await prisma.priceTable.create({
-    data: { ...where, importedAt: new Date(), sourceFile: opts.sourceFile ?? null },
+    data: {
+      ...where, importedAt: new Date(), sourceFile: opts.sourceFile ?? null,
+      socialChargesHourly: parsed.socialCharges?.hourly ?? null,
+      socialChargesMonthly: parsed.socialCharges?.monthly ?? null,
+    },
   });
 
   // Inputs

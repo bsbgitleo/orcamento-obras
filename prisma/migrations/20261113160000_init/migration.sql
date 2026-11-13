@@ -90,6 +90,8 @@ CREATE TABLE "PriceTable" (
     "regime" "TaxRegime" NOT NULL,
     "importedAt" TIMESTAMP(3),
     "sourceFile" TEXT,
+    "socialChargesHourly" DECIMAL(7,4),
+    "socialChargesMonthly" DECIMAL(7,4),
 
     CONSTRAINT "PriceTable_pkey" PRIMARY KEY ("id")
 );

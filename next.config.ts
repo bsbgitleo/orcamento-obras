@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Cache Components require Suspense boundaries around every DB read; the MVP
+  // renders dynamically. Revisit when adding caching.
+  cacheComponents: false,
+  partialPrefetching: false,
 };
 
 export default nextConfig;
