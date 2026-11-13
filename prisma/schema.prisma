@@ -1,0 +1,301 @@
+// prisma/schema.prisma
+// Fonte: 02-modelo-dados-e-regras.md (v0.1) + 01-especificacao-app-v0.2.md + 06-tcu-engenharia-custos-regras.md
+// Convenções: nomes em inglês; dinheiro Decimal(15,2); quantidades/coeficientes Decimal(15,4);
+// percentuais Decimal(7,4). Todo preço carrega fonte + UF + mês de referência + regime.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum ProjectType {
+  PUBLIC // obra pública (licitação)
+  PRIVATE // obra privada
+}
+
+enum ProjectCategory {
+  RESIDENTIAL_BUILDING
+  COMMERCIAL_BUILDING
+  SCHOOL
+  HEALTH_UNIT
+  PAVING
+  DRAINAGE
+  SANITATION
+  RENOVATION
+  OTHER
+}
+
+enum BudgetStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SENT
+  ARCHIVED
+}
+
+enum TaxRegime {
+  DESONERADO
+  NAO_DESONERADO
+}
+
+enum PriceOrigin {
+  SINAPI
+  SICRO
+  PROPRIA
+  COTACAO
+}
+
+enum InputKind {
+  MATERIAL
+  MAO_DE_OBRA
+  EQUIPAMENTO
+  SERVICO
+}
+
+enum CompositionItemType {
+  INSUMO
+  COMPOSICAO_AUXILIAR
+}
+
+enum WbsNodeKind {
+  STAGE // etapa / subetapa
+  SERVICE // serviço com composição e quantidade
+}
+
+/// Faixas do Acórdão TCU 2622/2013, item 9.1
+enum TcuWorkType {
+  EDIFICACOES
+  RODOVIAS_FERROVIAS
+  REDES_AGUA_ESGOTO
+  PORTUARIAS_MARITIMAS_FLUVIAIS
+  ESTACOES_REDES_ENERGIA_ELETRICA
+  FORNECIMENTO_MATERIAIS_EQUIPAMENTOS
+}
+
+// ───────────────────────── Cadastros ─────────────────────────
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  document  String? // CNPJ/CPF
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+}
+
+/// BDI nomeado e reutilizável. Percentuais em %, ex.: 4.0000 = 4 %.
+model BdiProfile {
+  id                    String      @id @default(cuid())
+  name                  String
+  workType              TcuWorkType @default(EDIFICACOES)
+  centralAdministration Decimal     @db.Decimal(7, 4)
+  insurance             Decimal     @db.Decimal(7, 4)
+  risk                  Decimal     @db.Decimal(7, 4)
+  guarantee             Decimal     @db.Decimal(7, 4)
+  financialExpenses     Decimal     @db.Decimal(7, 4)
+  profit                Decimal     @db.Decimal(7, 4)
+  pis                   Decimal     @db.Decimal(7, 4)
+  cofins                Decimal     @db.Decimal(7, 4)
+  iss                   Decimal     @db.Decimal(7, 4) // alíquota efetiva no município
+  cprb                  Decimal     @default(0) @db.Decimal(7, 4)
+  /// Resultado da fórmula TCU, em %, 2 casas (desnormalizado para relatório)
+  percent               Decimal     @db.Decimal(7, 2)
+  notes                 String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  budgetsAsMain         Budget[]    @relation("BudgetMainBdi")
+  budgetsAsSupply       Budget[]    @relation("BudgetSupplyBdi")
+}
+
+/// Tabela de encargos sociais reutilizável. Percentuais em %.
+model SocialChargesProfile {
+  id         String    @id @default(cuid())
+  name       String
+  regime     TaxRegime
+  hourlyPct  Decimal   @db.Decimal(7, 4) // horista
+  monthlyPct Decimal   @db.Decimal(7, 4) // mensalista
+  source     String? // ex.: "SINAPI DF 2026-10"
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  budgets    Budget[]
+}
+
+// ───────────────────────── Base de preços ─────────────────────────
+
+/// Uma tabela de preços = origem + UF + mês de referência + regime (rastreabilidade).
+model PriceTable {
+  id             String        @id @default(cuid())
+  origin         PriceOrigin
+  uf             String        @db.Char(2)
+  referenceMonth String        @db.Char(7) // "2026-10"
+  regime         TaxRegime
+  importedAt     DateTime?
+  sourceFile     String?
+  inputs         Input[]
+  compositions   Composition[]
+  budgets        Budget[]
+
+  @@unique([origin, uf, referenceMonth, regime])
+}
+
+model Input {
+  id           String            @id @default(cuid())
+  priceTableId String
+  priceTable   PriceTable        @relation(fields: [priceTableId], references: [id], onDelete: Cascade)
+  code         String
+  description  String
+  unit         String
+  kind         InputKind
+  unitPrice    Decimal           @db.Decimal(15, 2)
+  /// Nível na hierarquia da Lei 14.133 art. 23 §2º (1–4); null em obra privada
+  sourceLevel  Int?
+  sourceNote   String? // site/data-hora de acesso, cotação etc.
+  usages       CompositionItem[] @relation("ItemInput")
+
+  @@unique([priceTableId, code])
+  @@index([description])
+}
+
+model Composition {
+  id            String            @id @default(cuid())
+  priceTableId  String
+  priceTable    PriceTable        @relation(fields: [priceTableId], references: [id], onDelete: Cascade)
+  code          String
+  description   String
+  unit          String
+  /// Composição própria derivada de uma oficial (TCU §3): guarda a origem e a justificativa.
+  derivedFromId String?
+  derivedFrom   Composition?      @relation("Derivation", fields: [derivedFromId], references: [id])
+  derivations   Composition[]     @relation("Derivation")
+  justification String?
+  items         CompositionItem[] @relation("ParentComposition")
+  usedAsChild   CompositionItem[] @relation("ChildComposition")
+  services      WbsNode[]
+
+  @@unique([priceTableId, code])
+  @@index([description])
+}
+
+model CompositionItem {
+  id                 String              @id @default(cuid())
+  compositionId      String
+  composition        Composition         @relation("ParentComposition", fields: [compositionId], references: [id], onDelete: Cascade)
+  type               CompositionItemType
+  inputId            String?
+  input              Input?              @relation("ItemInput", fields: [inputId], references: [id])
+  childCompositionId String?
+  childComposition   Composition?        @relation("ChildComposition", fields: [childCompositionId], references: [id])
+  coefficient        Decimal             @db.Decimal(15, 4)
+
+  @@index([compositionId])
+}
+
+// ───────────────────────── Obra e orçamento ─────────────────────────
+
+model Project {
+  id              String          @id @default(cuid())
+  code            String          @unique // gerado automaticamente
+  name            String
+  type            ProjectType
+  category        ProjectCategory
+  clientId        String?
+  client          Client?         @relation(fields: [clientId], references: [id])
+  address         String?
+  uf              String          @db.Char(2)
+  deadlineDays    Int?
+  // Campos de licitação (só quando type = PUBLIC)
+  biddingModality String?
+  biddingNumber   String?
+  biddingAgency   String?
+  biddingOpensAt  DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  budgets         Budget[]
+}
+
+/// Uma revisão do orçamento (R0, R1, ...).
+model Budget {
+  id         String       @id @default(cuid())
+  projectId  String
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revision   Int          @default(0) // R0, R1...
+  status     BudgetStatus @default(DRAFT)
+  notes      String?
+  approvedBy String?
+  approvedAt DateTime?
+
+  priceTableId String
+  priceTable   PriceTable @relation(fields: [priceTableId], references: [id])
+
+  bdiId       String
+  bdi         BdiProfile  @relation("BudgetMainBdi", fields: [bdiId], references: [id])
+  /// BDI reduzido para mero fornecimento (Súmula TCU 253); opcional
+  supplyBdiId String?
+  supplyBdi   BdiProfile? @relation("BudgetSupplyBdi", fields: [supplyBdiId], references: [id])
+
+  socialChargesId String
+  socialCharges   SocialChargesProfile @relation(fields: [socialChargesId], references: [id])
+
+  // Totais desnormalizados (recalculados a cada alteração)
+  directCost Decimal @default(0) @db.Decimal(15, 2)
+  salePrice  Decimal @default(0) @db.Decimal(15, 2)
+
+  nodes     WbsNode[]
+  schedule  ScheduleEntry[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([projectId, revision])
+}
+
+/// EAP: etapas (STAGE) e serviços (SERVICE) na mesma tabela, em árvore.
+/// `code` (1, 1.1, 1.1.1) é recalculado pelo app a partir de parentId + position.
+model WbsNode {
+  id          String      @id @default(cuid())
+  budgetId    String
+  budget      Budget      @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      WbsNode?    @relation("Tree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    WbsNode[]   @relation("Tree")
+  kind        WbsNodeKind
+  position    Int
+  code        String
+  description String
+
+  // Só para SERVICE
+  compositionId String?
+  composition   Composition? @relation(fields: [compositionId], references: [id])
+  unit          String?
+  quantity      Decimal?     @db.Decimal(15, 4)
+  unitCost      Decimal?     @db.Decimal(15, 2) // calculado, 2 casas ROUND_HALF_UP
+  totalCost     Decimal?     @db.Decimal(15, 2)
+  /// Item de mero fornecimento → usa supplyBdi do orçamento
+  isSupplyItem  Boolean      @default(false)
+
+  schedule ScheduleEntry[]
+
+  @@unique([budgetId, parentId, position])
+  @@index([budgetId])
+}
+
+/// Cronograma físico-financeiro: percentual por mês por etapa raiz.
+model ScheduleEntry {
+  id       String  @id @default(cuid())
+  budgetId String
+  budget   Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  nodeId   String
+  node     WbsNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  month    Int // 1..N
+  percent  Decimal @db.Decimal(7, 4)
+
+  @@unique([nodeId, month])
+}

@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Orçamento de Obras
 
-## Getting Started
+Aplicativo web para orçamento de obras de construção civil no Brasil: EAP, composições SINAPI e próprias, BDI (Acórdão TCU 2622/2013), curva ABC, cronograma físico-financeiro e exportação de planilha/proposta.
 
-First, run the development server:
+A especificação, o modelo de dados e o registro de decisões ficam no projeto do Claude (`01-especificacao-app`, `02-modelo-dados-e-regras`, `03-registro-de-decisoes`, `06-tcu-engenharia-custos-regras`).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+Next.js 16 · TypeScript · PostgreSQL · Prisma 7 (driver adapter `pg`) · decimal.js · Vitest
+
+## Estrutura
+
+```
+src/core/        núcleo de cálculo puro (sem banco, sem UI) — 100 % testado
+  money.ts         Decimal, arredondamento (2 casas ROUND_HALF_UP), formato R$ 1.234,56
+  bdi.ts           fórmula TCU 2622/2013, faixas por tipo de obra
+  composition.ts   custo unitário de composição (recursivo, com divisão material/MO/equip.)
+  abc-curve.ts     curva ABC (A ≤ 80 %, B ≤ 95 %, C)
+  wbs.ts           EAP com numeração automática e movimentação de itens
+src/lib/prisma.ts  cliente Prisma (singleton)
+prisma/schema.prisma
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Rodando
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env        # ajuste DATABASE_URL
+npm install                 # roda prisma generate
+npm run db:migrate          # cria o banco
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Testes
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+Todas as regras de cálculo têm teste. O BDI é validado contra o exemplo do guia do TCU (23,86 % sem CPRB; 30,13 % com CPRB 4,5 %).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Convenções
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Código e commits em inglês; interface em PT-BR.
+- Dinheiro e quantidades sempre em `Decimal` (nunca `number`).
+- Todo preço tem fonte, UF, mês de referência e regime (desonerado / não desonerado).
+- Custos unitários: 2 casas, arredondamento meio para cima. BDI aplicado pelo percentual declarado (2 casas), não pelo fator bruto.
