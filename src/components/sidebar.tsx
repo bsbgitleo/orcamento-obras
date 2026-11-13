@@ -13,6 +13,10 @@ const groups: { title: string; items: { href: string; label: string; manager?: b
     { href: "/bases", label: "Tabelas importadas" },
     { href: "/bases/importar", label: "Importar SINAPI", platformAdmin: true },
   ] },
+  { title: "Base própria", items: [
+    { href: "/composicoes-proprias", label: "Composições próprias" },
+    { href: "/insumos-proprios", label: "Insumos próprios" },
+  ] },
   { title: "Cadastros", items: [
     { href: "/clientes", label: "Clientes" },
     { href: "/bdi", label: "BDI" },

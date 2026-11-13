@@ -1,7 +1,7 @@
 // src/components/wbs-editor.tsx
 "use client";
 import { useActionState, useRef, useState, useTransition } from "react";
-import { addService, addStage, deleteNode, moveNode, recalculate, searchCompositionsAction, toggleSupplyItem, updateDescription, updateQuantity } from "@/lib/actions/wbs";
+import { addService, addStage, deleteNode, moveNode, recalculate, searchCompositionsAction, toggleSupplyItem, updateDescription, updateQuantity, type CompositionBase } from "@/lib/actions/wbs";
 import { idle, type ActionState } from "@/lib/forms";
 import { brl } from "@/lib/format";
 import type { SearchHit, SearchMode } from "@/lib/compositions/search";
@@ -22,6 +22,8 @@ export interface WbsLine {
   totalPrice: string | null;
   isSupplyItem: boolean;
   compositionCode: string | null;
+  /** Serviço com composição própria da empresa */
+  ownComposition: boolean;
   isFirst: boolean;
   isLast: boolean;
 }
@@ -98,7 +100,7 @@ function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, readOnly, editing
   return (
     <tr className={isStage ? "stage" : "service"} style={isStage ? { fontWeight: 600, background: l.level === 1 ? "#f4f6f8" : "#fafbfc" } : undefined}>
       <td className="mono">{l.code}</td>
-      <td className="mono muted">{l.compositionCode ?? ""}</td>
+      <td className="mono muted">{l.compositionCode ?? ""}{l.ownComposition && <div><span className="badge" title="Composição própria da empresa, precificada na base deste orçamento">própria</span></div>}</td>
       <td style={indent}>
         {editing ? (
           <DescriptionForm nodeId={l.id} value={l.description} onDone={onEditDone} />
@@ -176,18 +178,19 @@ function ServiceForm({ budgetId, parentId, hasSupplyBdi, onDone }: { budgetId: s
   const [state, action] = useActionState<ActionState, FormData>(async (prev, fd) => { const r = await addService(budgetId, parentId, prev, fd); if (r.status === "ok") onDone(); return r; }, idle);
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<SearchMode>("KEYWORDS");
+  const [base, setBase] = useState<CompositionBase>("ALL");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [picked, setPicked] = useState<SearchHit | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced search, triggered from the input/select handlers (not an effect).
-  const schedule = (q: string, m: SearchMode) => {
+  const schedule = (q: string, m: SearchMode, b: CompositionBase = base) => {
     if (timer.current) clearTimeout(timer.current);
     if (q.trim().length < 2) { setHits([]); return; }
     timer.current = setTimeout(async () => {
       setSearching(true);
-      try { setHits(await searchCompositionsAction(budgetId, q, m)); } finally { setSearching(false); }
+      try { setHits(await searchCompositionsAction(budgetId, q, m, b)); } finally { setSearching(false); }
     }, 250);
   };
 
@@ -198,6 +201,11 @@ function ServiceForm({ budgetId, parentId, hasSupplyBdi, onDone }: { budgetId: s
         <>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input value={query} onChange={(e) => { setQuery(e.target.value); schedule(e.target.value, mode); }} placeholder="Buscar composição por código ou palavras (ex.: 104658, alvenaria bloco 14x19)" autoFocus aria-label="Buscar composição" style={{ flex: 1 }} />
+            <select value={base} onChange={(e) => { const b = e.target.value as CompositionBase; setBase(b); schedule(query, mode, b); }} aria-label="Base" style={{ width: 150 }}>
+              <option value="ALL">Oficial e própria</option>
+              <option value="OFFICIAL">Só a oficial</option>
+              <option value="OWN">Só a própria</option>
+            </select>
             <select value={mode} onChange={(e) => { const m = e.target.value as SearchMode; setMode(m); schedule(query, m); }} aria-label="Modo de busca" style={{ width: 160 }}>
               <option value="KEYWORDS">Palavras-chave</option>
               <option value="EXACT">Frase exata</option>
@@ -205,14 +213,14 @@ function ServiceForm({ budgetId, parentId, hasSupplyBdi, onDone }: { budgetId: s
             <button className="btn small secondary" type="button" onClick={onDone}>Cancelar</button>
           </div>
           {searching && <div className="muted" style={{ padding: 6 }}>Buscando…</div>}
-          {!searching && query.trim().length >= 2 && hits.length === 0 && <div className="muted" style={{ padding: 6 }}>Nada encontrado nesta base.</div>}
+          {!searching && query.trim().length >= 2 && hits.length === 0 && <div className="muted" style={{ padding: 6 }}>Nada encontrado.</div>}
           {hits.length > 0 && (
             <table className="list" style={{ marginTop: 8 }}>
               <thead><tr><th>Código</th><th>Descrição</th><th>Un.</th><th className="num">Custo unit.</th><th></th></tr></thead>
               <tbody>
                 {hits.map((h) => (
-                  <tr key={h.id}>
-                    <td className="mono">{h.code}</td>
+                  <tr key={`${h.kind}:${h.id}`}>
+                    <td className="mono">{h.code}{h.kind === "OWN" && <div><span className="badge">própria</span></div>}</td>
                     <td>{h.description}{h.unitCost === null && <span className="badge danger" style={{ marginLeft: 6 }}>sem custo</span>}</td>
                     <td>{h.unit}</td>
                     <td className="num">{brl(h.unitCost)}</td>
@@ -226,8 +234,8 @@ function ServiceForm({ budgetId, parentId, hasSupplyBdi, onDone }: { budgetId: s
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "start" }}>
           <div>
-            <div><span className="mono">{picked.code}</span> · {picked.description} <span className="muted">({picked.unit}, custo {brl(picked.unitCost)})</span></div>
-            <input type="hidden" name="compositionId" value={picked.id} />
+            <div><span className="mono">{picked.code}</span>{picked.kind === "OWN" && <span className="badge" style={{ marginLeft: 6 }}>própria</span>} · {picked.description} <span className="muted">({picked.unit}, custo {brl(picked.unitCost)}{picked.kind === "OWN" ? " nesta base" : ""})</span></div>
+            <input type="hidden" name={picked.kind === "OWN" ? "ownCompositionId" : "compositionId"} value={picked.id} />
             <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
               <div className="field" style={{ width: 140 }}>
                 <label htmlFor="qty">Quantidade ({picked.unit})</label>

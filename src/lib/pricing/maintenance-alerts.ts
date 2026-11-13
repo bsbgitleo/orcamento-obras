@@ -4,7 +4,8 @@
 // log published after the budget's reference month (decisão #33).
 import type { PrismaClient } from "@/generated/prisma/client";
 import { maintenanceAlerts, type MaintenanceAlert, type MaintenanceRecord, type UsedItem } from "@/core/maintenance";
-import { loadCatalogSubset } from "./catalog";
+import { isMissingKey, isOwnCompositionKey, isOwnInputKey, ownCompositionKey } from "@/core/own-composition";
+import { loadBudgetCatalog } from "./budget-catalog";
 
 export interface BudgetMaintenanceCheck {
   /** Mês do relatório de manutenções gravado; null se nunca foi importado */
@@ -15,7 +16,7 @@ export interface BudgetMaintenanceCheck {
 
 export async function checkBudgetMaintenance(
   prisma: PrismaClient,
-  budget: { priceTableId: string; nodes: { kind: string; code: string; compositionId: string | null }[] },
+  budget: { priceTableId: string; companyId: string; nodes: { kind: string; code: string; compositionId: string | null; ownCompositionId: string | null }[] },
 ): Promise<BudgetMaintenanceCheck | null> {
   const table = await prisma.priceTable.findUniqueOrThrow({ where: { id: budget.priceTableId } });
   if (table.origin !== "SINAPI" || table.companyId !== null) return null; // só bases oficiais SINAPI
@@ -24,9 +25,12 @@ export async function checkBudgetMaintenance(
   const result: BudgetMaintenanceCheck = { reportMonth: report?.fileMonth ?? null, budgetMonth: table.referenceMonth, alerts: [] };
   if (!report || report.fileMonth <= table.referenceMonth) return result; // nada publicado depois
 
-  const services = budget.nodes.filter((n) => n.kind === "SERVICE" && n.compositionId);
+  const services = budget.nodes.filter((n) => n.kind === "SERVICE" && (n.compositionId || n.ownCompositionId));
   if (!services.length) return result;
-  const catalog = await loadCatalogSubset(prisma, budget.priceTableId, services.map((s) => s.compositionId!));
+  const { catalog } = await loadBudgetCatalog(prisma, budget.priceTableId, budget.companyId, {
+    official: services.flatMap((s) => (s.compositionId ? [s.compositionId] : [])),
+    own: services.flatMap((s) => (s.ownCompositionId ? [s.ownCompositionId] : [])),
+  });
 
   // item → serviços (códigos da EAP) que o usam
   const used = new Map<string, UsedItem>();
@@ -43,15 +47,16 @@ export async function checkBudgetMaintenance(
       seen.add(compositionId);
       const c = catalog.getComposition(compositionId);
       if (!c) return;
-      mark("COMPOSICAO", c.code, c.description, s.code);
+      // Own compositions/inputs are not in the SINAPI log; their official items are
+      if (!isOwnCompositionKey(compositionId)) mark("COMPOSICAO", c.code, c.description, s.code);
       for (const it of c.items) {
         if (it.type === "INSUMO") {
           const i = catalog.getInput(it.inputId);
-          if (i) mark("INSUMO", i.code, i.description, s.code);
+          if (i && !isOwnInputKey(it.inputId) && !isMissingKey(it.inputId)) mark("INSUMO", i.code, i.description, s.code);
         } else walk(it.compositionId);
       }
     };
-    walk(s.compositionId!);
+    walk(s.ownCompositionId ? ownCompositionKey(s.ownCompositionId) : s.compositionId!);
   }
 
   const items = [...used.values()];

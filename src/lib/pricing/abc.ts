@@ -5,10 +5,12 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { buildAbcCurve, type AbcRow } from "@/core/abc-curve";
 import { explodeInputs } from "@/core/composition";
 import { D, ZERO, truncMoney, type Dec } from "@/core/money";
-import { loadCatalogSubset } from "./catalog";
+import { isOwnInputKey, ownCompositionKey } from "@/core/own-composition";
+import { loadBudgetCatalog } from "./budget-catalog";
+import { serviceCompositionKey } from "./recalculate-budget";
 
-export interface ServiceAbcItem { compositionId: string | null; code: string; description: string; unit: string; quantity: Dec; unitCost: Dec | null; lines: number }
-export interface InputAbcItem { inputId: string; code: string; description: string; unit: string; kind: string; quantity: Dec; unitPrice: Dec | null; priceFallbackUf: string | null }
+export interface ServiceAbcItem { compositionId: string | null; code: string; description: string; unit: string; quantity: Dec; unitCost: Dec | null; lines: number; own: boolean }
+export interface InputAbcItem { inputId: string; code: string; description: string; unit: string; kind: string; quantity: Dec; unitPrice: Dec | null; priceFallbackUf: string | null; own: boolean }
 
 export interface AbcReport {
   services: AbcRow<ServiceAbcItem>[];
@@ -23,7 +25,16 @@ export interface AbcReport {
 export async function buildAbcReport(prisma: PrismaClient, budgetId: string): Promise<AbcReport> {
   const budget = await prisma.budget.findUniqueOrThrow({
     where: { id: budgetId },
-    include: { nodes: { where: { kind: "SERVICE" }, include: { composition: { select: { id: true, code: true, description: true, unit: true } } } } },
+    include: {
+      project: { select: { companyId: true } },
+      nodes: {
+        where: { kind: "SERVICE" },
+        include: {
+          composition: { select: { id: true, code: true, description: true, unit: true } },
+          ownComposition: { select: { id: true, code: true, description: true, unit: true } },
+        },
+      },
+    },
   });
 
   // ── Serviços: agrupados por composição, custo total = Σ totalCost das linhas ──
@@ -31,10 +42,11 @@ export async function buildAbcReport(prisma: PrismaClient, budgetId: string): Pr
   let skipped = 0;
   for (const n of budget.nodes) {
     if (n.totalCost === null || n.unitCost === null) { skipped++; continue; }
-    const key = n.compositionId ?? n.id;
+    const key = serviceCompositionKey(n) ?? n.id;
+    const comp = n.ownComposition ?? n.composition;
     const cur = byComp.get(key) ?? {
-      compositionId: n.compositionId, code: n.composition?.code ?? "—", description: n.composition?.description ?? n.description,
-      unit: n.unit ?? "", quantity: ZERO, unitCost: D(n.unitCost.toString()), lines: 0, total: ZERO,
+      compositionId: n.ownCompositionId ?? n.compositionId, code: comp?.code ?? "—", description: comp?.description ?? n.description,
+      unit: n.unit ?? "", quantity: ZERO, unitCost: D(n.unitCost.toString()), lines: 0, total: ZERO, own: !!n.ownCompositionId,
     };
     cur.quantity = cur.quantity.plus(n.quantity?.toString() ?? 0);
     cur.total = cur.total.plus(n.totalCost.toString());
@@ -45,15 +57,17 @@ export async function buildAbcReport(prisma: PrismaClient, budgetId: string): Pr
   const servicesTotal = services.reduce((a, r) => a.plus(r.total), ZERO);
 
   // ── Insumos: explosão de cada serviço (qtd × coeficientes agregados) ──
-  const compIds = [...new Set(budget.nodes.flatMap((n) => (n.compositionId && n.unitCost !== null ? [n.compositionId] : [])))];
+  const priced = budget.nodes.filter((n) => n.unitCost !== null && (n.compositionId || n.ownCompositionId));
+  const official = [...new Set(priced.flatMap((n) => (n.compositionId ? [n.compositionId] : [])))];
+  const own = [...new Set(priced.flatMap((n) => (n.ownCompositionId ? [n.ownCompositionId] : [])))];
   const inputs: AbcRow<InputAbcItem>[] = [];
   let inputsTotal = ZERO;
-  if (compIds.length) {
-    const catalog = await loadCatalogSubset(prisma, budget.priceTableId, compIds);
+  if (priced.length) {
+    const { catalog } = await loadBudgetCatalog(prisma, budget.priceTableId, budget.project.companyId, { official, own });
     const qtyByInput = new Map<string, Dec>();
-    for (const n of budget.nodes) {
-      if (!n.compositionId || n.unitCost === null) continue;
-      const exploded = explodeInputs(n.compositionId, catalog, n.quantity?.toString() ?? 0);
+    for (const n of priced) {
+      const key = n.ownCompositionId ? ownCompositionKey(n.ownCompositionId) : n.compositionId!;
+      const exploded = explodeInputs(key, catalog, n.quantity?.toString() ?? 0);
       for (const [inputId, q] of exploded) qtyByInput.set(inputId, (qtyByInput.get(inputId) ?? ZERO).plus(q));
     }
     const rows = [...qtyByInput.entries()].map(([inputId, quantity]) => {
@@ -62,7 +76,7 @@ export async function buildAbcReport(prisma: PrismaClient, budgetId: string): Pr
       const total = unitPrice ? truncMoney(quantity.times(unitPrice)) : ZERO;
       const item: InputAbcItem = {
         inputId, code: i?.code ?? "?", description: i?.description ?? "(insumo não encontrado)", unit: i?.unit ?? "", kind: i?.kind ?? "",
-        quantity, unitPrice, priceFallbackUf: null,
+        quantity, unitPrice, priceFallbackUf: null, own: isOwnInputKey(inputId),
       };
       return { item, total };
     });

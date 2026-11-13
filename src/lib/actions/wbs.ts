@@ -5,7 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decimalString, parseForm, requiredText, type ActionState } from "@/lib/forms";
 import { recalculateBudget } from "@/lib/pricing/recalculate-budget";
-import { searchCompositions, type SearchHit, type SearchMode } from "@/lib/compositions/search";
+import { searchCompositions, searchOwnCompositions, type SearchHit, type SearchMode } from "@/lib/compositions/search";
+import { calculateCompositionCost } from "@/core/composition";
+import { ownCompositionKey } from "@/core/own-composition";
+import { loadBudgetCatalog } from "@/lib/pricing/budget-catalog";
 import { requireActionAuth, requireEditor } from "@/lib/auth/require";
 
 /** Budget of the signed-in company, or throws. */
@@ -13,7 +16,7 @@ async function ownBudget(budgetId: string, edit = true) {
   const ctx = edit ? await requireEditor() : await requireActionAuth();
   const b = await prisma.budget.findFirst({ where: { id: budgetId, project: { companyId: ctx.company.id } }, select: { id: true, projectId: true, priceTableId: true } });
   if (!b) throw new Error("Orçamento não encontrado.");
-  return b;
+  return { ...b, companyId: ctx.company.id };
 }
 
 /** Node of a budget of the signed-in company, or throws. */
@@ -40,10 +43,27 @@ async function nextPosition(budgetId: string, parentId: string | null): Promise<
   return (last?.position ?? -1) + 1;
 }
 
-/** Composition search for the "add service" picker (callable from client components). */
-export async function searchCompositionsAction(budgetId: string, query: string, mode: SearchMode): Promise<SearchHit[]> {
+export type CompositionBase = "ALL" | "OFFICIAL" | "OWN";
+
+/**
+ * Composition search for the "add service" picker (callable from client
+ * components): the budget's official base and/or the company's own
+ * compositions, whose cost is computed in the budget's base (decisões #36, #51).
+ */
+export async function searchCompositionsAction(budgetId: string, query: string, mode: SearchMode, base: CompositionBase = "ALL"): Promise<SearchHit[]> {
   const b = await ownBudget(budgetId, false);
-  return searchCompositions(prisma, { priceTableIds: [b.priceTableId], query, mode, limit: 40 });
+  const [official, own] = await Promise.all([
+    base === "OWN" ? [] : searchCompositions(prisma, { priceTableIds: [b.priceTableId], query, mode, limit: 40 }),
+    base === "OFFICIAL" ? [] : searchOwnCompositions(prisma, { companyId: b.companyId, query, mode, limit: 20 }),
+  ]);
+  if (own.length) {
+    const { catalog } = await loadBudgetCatalog(prisma, b.priceTableId, b.companyId, { own: own.map((h) => h.id) });
+    for (const h of own) {
+      const r = calculateCompositionCost(ownCompositionKey(h.id), catalog);
+      h.unitCost = r.incomplete ? null : r.unitCost.toFixed(2);
+    }
+  }
+  return [...own, ...official];
 }
 
 // ─── Etapas ───
@@ -67,7 +87,8 @@ export async function addStage(budgetId: string, parentId: string | null, _prev:
 // ─── Serviços ───
 
 const serviceSchema = z.object({
-  compositionId: requiredText("Composição"),
+  compositionId: z.string().optional(),
+  ownCompositionId: z.string().optional(),
   quantity: decimalString({ min: 0, label: "Quantidade" }),
   description: z.string().optional(),
   isSupplyItem: z.string().optional().transform((s) => s === "on"),
@@ -77,18 +98,29 @@ export async function addService(budgetId: string, parentId: string, _prev: Acti
   const budget = await ownBudget(budgetId);
   const r = parseForm(serviceSchema, fd);
   if (!r.ok) return r.state;
-  const [parent, comp] = await Promise.all([
-    prisma.wbsNode.findUnique({ where: { id: parentId } }),
-    prisma.composition.findUnique({ where: { id: r.data.compositionId } }),
-  ]);
+  const parent = await prisma.wbsNode.findUnique({ where: { id: parentId } });
   if (!parent || parent.budgetId !== budgetId || parent.kind !== "STAGE") return { status: "error", message: "Serviços só podem ser adicionados dentro de uma etapa." };
-  if (!comp) return { status: "error", message: "Composição não encontrada." };
-  if (comp.priceTableId !== budget.priceTableId) return { status: "error", message: "A composição não pertence à base de preços deste orçamento." };
+  let link: { compositionId: string } | { ownCompositionId: string };
+  let comp: { description: string; unit: string } | null;
+  if (r.data.ownCompositionId) {
+    // Own composition of this company, priced in the budget's base (decisão #51)
+    comp = await prisma.ownComposition.findFirst({ where: { id: r.data.ownCompositionId, companyId: budget.companyId } });
+    if (!comp) return { status: "error", message: "Composição própria não encontrada." };
+    link = { ownCompositionId: r.data.ownCompositionId };
+  } else if (r.data.compositionId) {
+    const official = await prisma.composition.findUnique({ where: { id: r.data.compositionId } });
+    if (!official) return { status: "error", message: "Composição não encontrada." };
+    if (official.priceTableId !== budget.priceTableId) return { status: "error", message: "A composição não pertence à base de preços deste orçamento." };
+    comp = official;
+    link = { compositionId: official.id };
+  } else {
+    return { status: "error", message: "Escolha uma composição." };
+  }
   await prisma.wbsNode.create({
     data: {
       budgetId, parentId, kind: "SERVICE", position: await nextPosition(budgetId, parentId), code: "",
       description: r.data.description?.trim() || comp.description,
-      compositionId: comp.id, unit: comp.unit, quantity: r.data.quantity, isSupplyItem: r.data.isSupplyItem,
+      ...link, unit: comp.unit, quantity: r.data.quantity, isSupplyItem: r.data.isSupplyItem,
     },
   });
   return finish(budgetId);

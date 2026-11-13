@@ -41,7 +41,7 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 
 ## Sessão 2 — sexta-feira, 13/11/2026 (Claude Code no Mac)
 
-**Início:** ~19:30 · **Última atualização:** 20:20
+**Início:** ~19:30 · **Última atualização:** 20:45
 
 ### Discutido / decidido
 - Levantamento do código no Mac; Leo arquivou referências de cotação (planilhas-padrão de proposta da SQS 211 G e SQS 308 I e duas propostas de fornecedor) em `orcamento-obras-dados/referencias/` (fora do repositório) e trouxe os documentos 03, 07, 08 e 09 para `docs/`.
@@ -59,3 +59,10 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 ### Observações
 - A atualização da página inteira (`router.refresh`) parava enquanto o servidor calculava; trocada por consulta leve ao progresso (`GET /api/bases/importacoes/<id>`), uma de cada vez, com tempo-limite.
 - A sandbox do Claude Code bloqueia a porta 5432 e o cache do Prisma; os comandos do projeto rodam fora dela.
+
+### Continuação — composições próprias (20:25–20:45)
+- Commit da importação no ramo `feat/importacao-sinapi` (`fdd89db`).
+- Respostas do Leo: composição própria **precificada pela base do orçamento** (#51); insumo próprio com **um preço, fonte e data** (#52); alterações valem **no próximo recálculo** (#53).
+- Feito (sem commit): migração `20261114010000_own_compositions`; núcleo `own-composition.ts` (catálogo oficial + próprio, ciclos) com testes; carregador `budget-catalog.ts` usado por recálculo, curva ABC, alertas e busca; telas Composições próprias (lista com base de referência, criação do zero ou por cópia, ficha com itens, coeficientes, ordem e custo por item) e Insumos próprios; EAP com filtro oficial/própria e selo "própria".
+- Teste no navegador: cópia da 87879 deu R$ 5,47 (igual ao publicado); com o insumo próprio (0,02 L × R$ 38,90) R$ 6,24 sem desoneração e R$ 6,07 com desoneração; no orçamento, 100 m² = R$ 624,00 e preço com BDI R$ 7,72; curva ABC explode a composição própria até o insumo próprio; exclusão de composição em uso bloqueada com aviso.
+- Corrigido no teste: o aviso de erro do botão de excluir sumia ao fechar a pergunta.

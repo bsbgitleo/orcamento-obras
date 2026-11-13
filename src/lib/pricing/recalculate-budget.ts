@@ -5,29 +5,38 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { calculateCompositionCost, type CompositionCost } from "@/core/composition";
 import { buildTree, computeBudget, type BudgetNodeInput, type BudgetResult } from "@/core/budget";
-import { loadCatalogSubset } from "./catalog";
+import { ownCompositionKey } from "@/core/own-composition";
+import { loadBudgetCatalog } from "./budget-catalog";
+
+/** Catalog key of the composition a service uses (official id or own key). */
+export function serviceCompositionKey(n: { compositionId: string | null; ownCompositionId: string | null }): string | null {
+  return n.ownCompositionId ? ownCompositionKey(n.ownCompositionId) : n.compositionId;
+}
 
 export async function recalculateBudget(prisma: PrismaClient, budgetId: string): Promise<BudgetResult> {
   const budget = await prisma.budget.findUniqueOrThrow({
     where: { id: budgetId },
-    include: { bdi: true, supplyBdi: true, nodes: true },
+    include: { bdi: true, supplyBdi: true, nodes: true, project: { select: { companyId: true } } },
   });
 
-  // 1. Composition costs (decision #18: always recomputed from items)
-  const compositionIds = [...new Set(budget.nodes.flatMap((n) => (n.compositionId ? [n.compositionId] : [])))];
+  // 1. Composition costs (decision #18: always recomputed from items; own
+  //    compositions priced in this budget's base, decision #51)
+  const official = [...new Set(budget.nodes.flatMap((n) => (n.compositionId ? [n.compositionId] : [])))];
+  const own = [...new Set(budget.nodes.flatMap((n) => (n.ownCompositionId ? [n.ownCompositionId] : [])))];
   const costs = new Map<string, CompositionCost>();
-  if (compositionIds.length) {
-    const catalog = await loadCatalogSubset(prisma, budget.priceTableId, compositionIds);
+  if (official.length || own.length) {
+    const { catalog } = await loadBudgetCatalog(prisma, budget.priceTableId, budget.project.companyId, { official, own });
     const cache = new Map<string, CompositionCost>();
-    for (const id of compositionIds) {
-      if (catalog.getComposition(id)) costs.set(id, calculateCompositionCost(id, catalog, cache));
+    for (const key of [...official, ...own.map(ownCompositionKey)]) {
+      if (catalog.getComposition(key)) costs.set(key, calculateCompositionCost(key, catalog, cache));
     }
   }
 
   // 2. Tree → core
   const tree = buildTree(budget.nodes, (row, children): BudgetNodeInput => {
     if (row.kind === "STAGE") return { kind: "STAGE", id: row.id, description: row.description, children };
-    const cost = row.compositionId ? costs.get(row.compositionId) : undefined;
+    const key = serviceCompositionKey(row);
+    const cost = key ? costs.get(key) : undefined;
     return {
       kind: "SERVICE", id: row.id, description: row.description, unit: row.unit ?? "",
       quantity: row.quantity?.toString() ?? "0",

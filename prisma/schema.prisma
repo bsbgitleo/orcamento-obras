@@ -101,6 +101,8 @@ model Company {
   socialCharges SocialChargesProfile[]
   priceTables   PriceTable[]
   projects      Project[]
+  ownInputs       OwnInput[]
+  ownCompositions OwnComposition[]
 }
 
 model User {
@@ -396,6 +398,9 @@ model WbsNode {
   // Só para SERVICE
   compositionId String?
   composition   Composition? @relation(fields: [compositionId], references: [id])
+  /// Serviço com composição própria da empresa (em vez de compositionId) — decisão #51
+  ownCompositionId String?
+  ownComposition   OwnComposition? @relation(fields: [ownCompositionId], references: [id])
   unit          String?
   quantity      Decimal?     @db.Decimal(15, 4)
   unitCost      Decimal?     @db.Decimal(15, 2) // custo unitário = custo da composição
@@ -411,6 +416,7 @@ model WbsNode {
   @@index([budgetId])
   @@index([parentId])
   @@index([compositionId])
+  @@index([ownCompositionId])
 }
 
 /// Cronograma físico-financeiro: percentual por mês por etapa raiz.
@@ -481,4 +487,87 @@ model SourceMaintenance {
 
   @@index([origin, code])
   @@index([origin, referenceMonth])
+}
+
+// ---------------------------------------------------------------------------
+// Base própria da empresa (decisões #36, #51–#53)
+// ---------------------------------------------------------------------------
+
+/// Insumo que não existe na base oficial: preço cotado com fonte e data.
+model OwnInput {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code        String
+  description String
+  unit        String
+  kind        InputKind
+  /// Preço unitário (mão de obra: já com encargos)
+  unitPrice   Decimal   @db.Decimal(15, 2)
+  /// Data do preço (cotação, nota fiscal…)
+  priceDate   DateTime  @db.Date
+  /// Fornecedor, cotação, nota fiscal, site…
+  source      String
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  usages      OwnCompositionItem[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+/// Composição da empresa. Os itens oficiais são guardados pelo código e
+/// precificados na base do orçamento em que a composição é usada (#51).
+model OwnComposition {
+  id            String      @id @default(cuid())
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code          String
+  description   String
+  unit          String
+  group         String?
+  /// Composição oficial de origem, quando criada por cópia (ex.: SINAPI 87879)
+  derivedFromOrigin PriceOrigin?
+  derivedFromCode   String?
+  /// Por que a composição foi criada ou adaptada (exigida pelo TCU em obra pública)
+  justification String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  items         OwnCompositionItem[] @relation("OwnParent")
+  usedAsChild   OwnCompositionItem[] @relation("OwnChild")
+  services      WbsNode[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+enum OwnItemType {
+  OFFICIAL_INPUT
+  OFFICIAL_COMPOSITION
+  OWN_INPUT
+  OWN_COMPOSITION
+}
+
+model OwnCompositionItem {
+  id               String          @id @default(cuid())
+  compositionId    String
+  composition      OwnComposition  @relation("OwnParent", fields: [compositionId], references: [id], onDelete: Cascade)
+  position         Int
+  type             OwnItemType
+  /// Itens oficiais: origem + código (resolvidos na base do orçamento)
+  officialOrigin   PriceOrigin?
+  officialCode     String?
+  /// Descrição e unidade do item oficial quando foi incluído (exibição se não existir na base)
+  officialDescription String?
+  officialUnit     String?
+  ownInputId       String?
+  ownInput         OwnInput?       @relation(fields: [ownInputId], references: [id])
+  ownCompositionId String?
+  ownComposition   OwnComposition? @relation("OwnChild", fields: [ownCompositionId], references: [id])
+  coefficient      Decimal         @db.Decimal(18, 7)
+
+  @@index([compositionId])
+  @@index([ownInputId])
+  @@index([ownCompositionId])
 }

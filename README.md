@@ -18,6 +18,7 @@ src/core/        núcleo de cálculo puro (sem banco, sem UI) — 100 % testado
   abc-curve.ts     curva ABC (A ≤ 80 %, B ≤ 95 %, C)
   wbs.ts           EAP com numeração automática e movimentação de itens
   maintenance.ts   alertas de manutenção do SINAPI (desativada / alterada) para orçamentos antigos
+  own-composition.ts composições próprias no catálogo: itens oficiais por código, insumos próprios, ciclos
 src/import/sinapi/ importador das planilhas da Caixa (streaming, exceljs)
   parse-reference.ts   SINAPI_Referência_AAAA_MM.xlsx → insumos, composições, árvore analítica
   parse-labor-share.ts SINAPI_mao_de_obra_AAAA_MM.xlsx → % de mão de obra por composição
@@ -26,6 +27,7 @@ src/import/sinapi/ importador das planilhas da Caixa (streaming, exceljs)
   load.ts              grava uma PriceTable (origem + UF + mês + regime) e as manutenções
   run-import.ts        fluxo completo (UFs × regimes, cache de custos, conferência), usado pela CLI e pela tela
 src/lib/imports/   importação em segundo plano pela interface (ImportJob)
+src/lib/pricing/budget-catalog.ts catálogo de uma base + composições próprias (recálculo, ABC, alertas, busca)
 scripts/           CLIs: import-sinapi, validate-sinapi, check-price-table, platform-admin
 src/lib/prisma.ts  cliente Prisma (singleton)
 prisma/schema.prisma
@@ -75,6 +77,13 @@ npm run sinapi:check -- DF 2026-10 NAO_DESONERADO   # recalcula tudo e compara c
 - **SINAPI_Manutenções** é cumulativo e nacional (34.393 registros desde 07/2009 no arquivo de 10/2026): cada importação
   substitui o anterior, e um arquivo mais antigo não sobrescreve um mais novo. Os orçamentos feitos numa referência
   anterior mostram as composições e os insumos (inclusive de composições auxiliares) desativados ou alterados depois.
+
+## Base própria
+
+Composições e insumos da empresa (menu **Base própria**). Os itens oficiais de uma composição própria ficam guardados
+pelo **código** e são precificados na base de cada orçamento (UF, mês e regime); um código que não existe nessa base
+deixa o serviço "sem custo". Insumos próprios têm preço, data e fonte. Dá para criar do zero ou copiando uma composição
+oficial (ex.: 87879) para ajustar coeficientes e incluir insumos. Alterações valem para os orçamentos no próximo recálculo.
 
 Regras do SINAPI reproduzidas (verificadas centavo a centavo nas 10.710 composições do DF, 10/2026):
 - custo do item = `TRUNC(coeficiente × preço, 2)`; custo da composição = soma dos itens;

@@ -54,16 +54,20 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 48 | 2026-11-13 | **SINAPI_Manutenções** (#33): o arquivo é cumulativo e nacional (34.393 linhas desde 07/2009 no de 10/2026); cada importação **substitui** todas as linhas SINAPI de `SourceMaintenance`, e um arquivo mais antigo nunca sobrescreve um mais novo. Leitor próprio, porque a Caixa grava esse arquivo com XML prefixado (`<x:row>`), que o leitor em streaming do exceljs ignora | Aprovado (proposto pelo Claude) · implementado |
 | 49 | 2026-11-13 | **Alertas de manutenção no orçamento**: só em base oficial SINAPI; considera os serviços, as composições auxiliares (recursivo) e os insumos; mostra manutenções com referência **posterior** ao mês do orçamento. Desativação/suspensão = crítico (painel aberto); alterações de itens, coeficientes, família, unidade e descrição = atenção; criação e início de divulgação = informativo. Só alerta: o cálculo continua na base original | Aprovado (proposto pelo Claude) · implementado |
 | 50 | 2026-11-13 | **Ambiente local no Mac revisado** (#42, #44): sem Docker; PostgreSQL 16 do Homebrew (usuário `postgres`, banco `orcamento_obras`, porta 5432). No Claude Code desktop o Claude roda comandos e o servidor (`orcamento-obras` no `launch.json`, porta 3010) direto no Mac | **Aprovado pelo Leo** (instalação) |
+| 51 | 2026-11-13 | **Composição própria precificada pela base do orçamento**: os itens oficiais ficam guardados pelo **código** (com origem, descrição e unidade de quando foram incluídos) e são resolvidos na base de cada orçamento (UF, mês e regime). Código que não existe nessa base vira item sem preço e o serviço fica "sem custo" (nunca custa menos em silêncio). Código de outra origem nunca é resolvido (não mistura SINAPI e SICRO) | **Aprovado pelo Leo** · implementado |
+| 52 | 2026-11-13 | **Insumo próprio**: um preço com **fonte e data** (fornecedor, cotação, nota fiscal…) e observação; mão de obra já com encargos. Várias cotações com mediana ficam para o módulo de cotação. Códigos sugeridos `IP-0001` e `CP-0001`, editáveis, únicos por empresa | **Aprovado pelo Leo** · implementado |
+| 53 | 2026-11-13 | **Alterar composição ou insumo próprio** vale para os orçamentos no **próximo recálculo** de cada um. O congelamento entra junto com a aprovação do orçamento | **Aprovado pelo Leo** · implementado |
+| 54 | 2026-11-13 | **Implementação da base própria**: tabelas `OwnInput`, `OwnComposition`, `OwnCompositionItem` e `WbsNode.ownCompositionId` (as colunas antigas `Composition.derivedFromId/justification` ficam sem uso). Um catálogo único (oficial + próprio) alimenta recálculo, curva ABC, alertas de manutenção e a busca da EAP (filtro oficial / própria, #36). Criação do zero ou **por cópia de uma composição oficial** (guarda a origem; justificativa técnica com aviso de que o TCU a exige em obra pública). Composição auxiliar própria permitida, com bloqueio de referência circular. Exclusão bloqueada se usada em orçamento ou em outra composição, com confirmação em dois cliques na tela (sem caixa do navegador) | Aprovado (proposto pelo Claude) · implementado |
 
-## Estado do código (2026-11-13, 20h20)
-- Repo: github.com/bsbgitleo/orcamento-obras, branch `main`. Último commit no GitHub: `5cd512b`; a importação pela interface (#45–#49) está na pasta local, **ainda sem commit**.
-- **91 testes**; `tsc` e `eslint` sem erros.
-- Telas: Início, Clientes, BDI, Encargos sociais, Bases (lista, **Importar SINAPI**, acompanhamento da importação), Orçamentos (lista, assistente, planilha com EAP e **alertas de manutenção**, curva ABC, cronograma por subetapa), Login/Cadastro, Minha senha, Empresa → Usuários.
+## Estado do código (2026-11-13, 20h45)
+- Repo: github.com/bsbgitleo/orcamento-obras. Ramo local `feat/importacao-sinapi`: commit `fdd89db` (importação, #45–#50); a base própria (#51–#54) está na pasta, **sem commit**. Nada enviado ao GitHub; `main` continua em `5cd512b`.
+- **97 testes**; `tsc` e `eslint` sem erros.
+- Telas: Início, Clientes, BDI, Encargos sociais, Bases (lista, Importar SINAPI, acompanhamento), **Base própria (composições e insumos próprios)**, Orçamentos (lista, assistente, planilha com EAP — busca oficial/própria —, alertas de manutenção, curva ABC, cronograma), Login/Cadastro, Minha senha, Empresa → Usuários.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
 2. ~~Upload SINAPI pela interface + UF escolhida + Manutenções (#32–#34)~~ ✔ (#45–#49)
-3. Composições próprias + busca unificada (#36).
+3. ~~Composições próprias + busca unificada (#36)~~ ✔ (#51–#54)
 4. SICRO: motor, importador das 12 planilhas, DMT no orçamento (#38–#40).
 5. Exportações (Excel/PDF) e proposta comercial.
 
@@ -74,3 +78,5 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 - Pasta `~/orcamento-obras` (fora de Documentos): é um clone antigo do mesmo repositório (`07b2965`, só o `package-lock.json` alterado pelo npm) — o Leo decide se apaga.
 - Documentos 01 (especificação), 02 (modelo de dados) e 06 (regras TCU) não estão no repositório.
 - Importação em processo separado (worker) se a hospedagem escolhida exigir (#47).
+- Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
+- Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.

@@ -16,6 +16,8 @@ export interface SearchParams {
 }
 
 export interface SearchHit {
+  /** OFFICIAL: composição da base do orçamento; OWN: composição própria da empresa */
+  kind: "OFFICIAL" | "OWN";
   id: string;
   code: string;
   description: string;
@@ -23,7 +25,8 @@ export interface SearchHit {
   group: string | null;
   unitCost: string | null;
   sourceStatus: string | null;
-  priceTable: { id: string; origin: string; uf: string; referenceMonth: string; regime: string };
+  /** Base oficial (null nas composições próprias, que são precificadas na base do orçamento) */
+  priceTable: { id: string; origin: string; uf: string; referenceMonth: string; regime: string } | null;
 }
 
 /** Splits a query into keywords, ignoring 1-char tokens. "PAREDE 14CM" → ["PAREDE", "14CM"] */
@@ -72,8 +75,45 @@ export async function searchCompositions(db: Pick<PrismaClient, "$queryRaw">, p:
     ORDER BY (c.code = ${q}) DESC, c.code ASC
     LIMIT ${p.limit ?? 50}`;
   return rows.map((r) => ({
+    kind: "OFFICIAL" as const,
     id: r.id, code: r.code, description: r.description, unit: r.unit, group: r.group,
     unitCost: r.unitCost?.toString() ?? null, sourceStatus: r.sourceStatus,
     priceTable: { id: r.ptId, origin: r.origin, uf: r.uf, referenceMonth: r.referenceMonth, regime: r.regime },
   }));
+}
+
+// ─── Base própria (decisão #36) ───
+
+export interface OwnSearchParams {
+  companyId: string;
+  query: string;
+  mode?: SearchMode;
+  limit?: number;
+}
+
+/** WHERE for own compositions: each keyword in the description OR the code (exported for tests). */
+export function buildOwnConditions(p: OwnSearchParams): Prisma.Sql[] {
+  const conds: Prisma.Sql[] = [Prisma.sql`o."companyId" = ${p.companyId}`];
+  const q = p.query.trim();
+  if (!q) return conds;
+  if (p.mode === "EXACT") {
+    conds.push(Prisma.sql`(unaccent(o.description) ILIKE unaccent(${likePattern(q, "contains")}) OR o.code ILIKE ${likePattern(q, "prefix")})`);
+  } else {
+    for (const t of tokenize(q)) {
+      conds.push(Prisma.sql`(unaccent(o.description) ILIKE unaccent(${likePattern(t, "contains")}) OR o.code ILIKE ${likePattern(t, "contains")})`);
+    }
+  }
+  return conds;
+}
+
+/** Own compositions of the company (cost is filled by the caller, in the budget's base). */
+export async function searchOwnCompositions(db: Pick<PrismaClient, "$queryRaw">, p: OwnSearchParams): Promise<SearchHit[]> {
+  const where = Prisma.join(buildOwnConditions(p), " AND ");
+  const rows = await db.$queryRaw<{ id: string; code: string; description: string; unit: string; group: string | null }[]>`
+    SELECT o.id, o.code, o.description, o.unit, o."group"
+    FROM "OwnComposition" o
+    WHERE ${where}
+    ORDER BY (o.code = ${p.query.trim()}) DESC, o.code ASC
+    LIMIT ${p.limit ?? 50}`;
+  return rows.map((r) => ({ kind: "OWN" as const, ...r, unitCost: null, sourceStatus: null, priceTable: null }));
 }

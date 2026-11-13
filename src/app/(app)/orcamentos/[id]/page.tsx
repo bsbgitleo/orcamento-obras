@@ -21,7 +21,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
       client: true,
       budgets: {
         orderBy: { revision: "desc" }, take: 1,
-        include: { priceTable: true, bdi: true, supplyBdi: true, socialCharges: true, nodes: { include: { composition: { select: { code: true } } } } },
+        include: { priceTable: true, bdi: true, supplyBdi: true, socialCharges: true, nodes: { include: { composition: { select: { code: true } }, ownComposition: { select: { code: true } } } } },
       },
     },
   });
@@ -39,13 +39,13 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         id: n.id, parentId: n.parentId, code: n.code, level, kind: n.kind, description: n.description, unit: n.unit,
         quantity: n.quantity?.toString() ?? null, unitCost: n.unitCost?.toString() ?? null, totalCost: n.totalCost?.toString() ?? null,
         unitPrice: n.unitPrice?.toString() ?? null, totalPrice: n.totalPrice?.toString() ?? null,
-        isSupplyItem: n.isSupplyItem, compositionCode: n.composition?.code ?? null, isFirst: i === 0, isLast: i === list.length - 1,
+        isSupplyItem: n.isSupplyItem, compositionCode: n.ownComposition?.code ?? n.composition?.code ?? null, ownComposition: !!n.ownCompositionId, isFirst: i === 0, isLast: i === list.length - 1,
       });
       if (n.kind === "STAGE") walk(n.id, level + 1);
     });
   };
   walk(null, 1);
-  const maintenance = await checkBudgetMaintenance(prisma, budget);
+  const maintenance = await checkBudgetMaintenance(prisma, { ...budget, companyId: company.id });
   const incomplete = lines.filter((l) => l.kind === "SERVICE" && l.unitCost === null).length;
   const services = lines.filter((l) => l.kind === "SERVICE").length;
 
