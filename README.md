@@ -27,14 +27,23 @@ prisma/schema.prisma
 prisma/migrations/ migração inicial (SQL)
 ```
 
-## Rodando
+## Rodando na sua máquina
+
+Pré-requisitos: Node.js 22+, Docker (ou um PostgreSQL 16 local).
 
 ```bash
-cp .env.example .env        # ajuste DATABASE_URL
-npm install                 # roda prisma generate
-npm run db:migrate          # cria o banco
-npm run dev
+git clone https://github.com/bsbgitleo/orcamento-obras.git
+cd orcamento-obras
+cp .env.example .env            # DATABASE_URL já aponta para o Postgres do docker-compose
+docker compose up -d            # sobe o PostgreSQL
+npm install                     # instala e gera o cliente Prisma
+npm run db:migrate              # cria as tabelas (aplica prisma/migrations/*.sql)
+npm run sinapi:import -- --ref SINAPI_Referência_2026_10.xlsx --labor SINAPI_mao_de_obra_2026_10.xlsx --uf DF --regime ALL
+npm run dev                     # http://localhost:3000
 ```
+
+Na primeira vez, abra http://localhost:3000/cadastro e crie sua empresa (você será o gestor).
+`npm run db:migrate` usa um script próprio (não precisa do schema-engine do Prisma) e pode ser repetido; migrações já aplicadas são puladas.
 
 ## Importando o SINAPI
 

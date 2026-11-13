@@ -11,12 +11,13 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "tsx scripts/db-migrate.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "sinapi:import": "tsx scripts/import-sinapi.ts",
     "sinapi:validate": "tsx scripts/validate-sinapi.ts",
-    "sinapi:check": "tsx scripts/check-price-table.ts"
+    "sinapi:check": "tsx scripts/check-price-table.ts",
+    "setup": "npm run db:migrate"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",
