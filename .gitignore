@@ -44,3 +44,6 @@ next-env.d.ts
 /src/generated/
 /scratch/
 /.tmp/
+
+# example env is versioned
+!.env.example
