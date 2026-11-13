@@ -17,19 +17,25 @@ src/core/        núcleo de cálculo puro (sem banco, sem UI) — 100 % testado
   composition.ts   custo unitário de composição (recursivo, com divisão material/MO/equip.)
   abc-curve.ts     curva ABC (A ≤ 80 %, B ≤ 95 %, C)
   wbs.ts           EAP com numeração automática e movimentação de itens
+  maintenance.ts   alertas de manutenção do SINAPI (desativada / alterada) para orçamentos antigos
 src/import/sinapi/ importador das planilhas da Caixa (streaming, exceljs)
   parse-reference.ts   SINAPI_Referência_AAAA_MM.xlsx → insumos, composições, árvore analítica
   parse-labor-share.ts SINAPI_mao_de_obra_AAAA_MM.xlsx → % de mão de obra por composição
-  load.ts              grava uma PriceTable (origem + UF + mês + regime)
-scripts/           CLIs: import-sinapi, validate-sinapi, check-price-table
+  parse-maintenance.ts SINAPI_Manutenções_AAAA_MM.xlsx → histórico de manutenções (XML com prefixo x:)
+  classify.ts          reconhece cada planilha pelas abas (os nomes no ZIP da Caixa vêm sem acento)
+  load.ts              grava uma PriceTable (origem + UF + mês + regime) e as manutenções
+  run-import.ts        fluxo completo (UFs × regimes, cache de custos, conferência), usado pela CLI e pela tela
+src/lib/imports/   importação em segundo plano pela interface (ImportJob)
+scripts/           CLIs: import-sinapi, validate-sinapi, check-price-table, platform-admin
 src/lib/prisma.ts  cliente Prisma (singleton)
 prisma/schema.prisma
-prisma/migrations/ migração inicial (SQL)
+prisma/migrations/ migrações (SQL escrito à mão; conferido com `prisma migrate diff`)
 ```
 
 ## Rodando na sua máquina
 
-Pré-requisitos: Node.js 22+, Docker (ou um PostgreSQL 16 local).
+Pré-requisitos: Node.js 22+ e PostgreSQL 16 — pelo Docker (`docker compose up -d`) ou instalado direto
+(no Mac: `brew install postgresql@16`, criar o usuário `postgres` com senha `postgres` e o banco `orcamento_obras`).
 
 ```bash
 git clone https://github.com/bsbgitleo/orcamento-obras.git
@@ -43,17 +49,32 @@ npm run dev                     # http://localhost:3000
 ```
 
 Na primeira vez, abra http://localhost:3000/cadastro e crie sua empresa (você será o gestor).
+Para importar as bases oficiais pela interface, torne-se administrador da plataforma:
+`npm run admin:platform -- seu@email.com` (`--revoke` retira; `--list` lista).
 `npm run db:migrate` usa um script próprio (não precisa do schema-engine do Prisma) e pode ser repetido; migrações já aplicadas são puladas.
 
 ## Importando o SINAPI
 
-Baixe no site da Caixa as planilhas do mês (ex.: `SINAPI_Referência_2026_10.xlsx` e
-`SINAPI_mao_de_obra_2026_10.xlsx`) e rode:
+**Pela interface** (só o administrador da plataforma — as bases oficiais são compartilhadas por todas as empresas):
+Tabelas importadas → **Importar SINAPI**. Envie o ZIP baixado no site da Caixa (ex.: `SINAPI-2026-10-formato-xlsx.zip`)
+ou as planilhas soltas; o tipo de cada arquivo é reconhecido pelas abas. Escolha as UFs e os regimes. A importação roda
+em segundo plano no servidor (uma por vez), com o registro ao vivo em `/bases/importacoes/<id>`; ao final, o custo de
+todas as composições é recalculado e conferido com o publicado. Os arquivos enviados ficam em `IMPORT_DIR`
+(padrão `.data/imports`) só até o fim da importação.
+
+**Pela linha de comando** (mesmo fluxo):
 
 ```bash
-npm run sinapi:import -- --ref SINAPI_Referência_2026_10.xlsx --labor SINAPI_mao_de_obra_2026_10.xlsx --uf DF --regime ALL
+npm run sinapi:import -- --ref SINAPI_Referência_2026_10.xlsx --labor SINAPI_mao_de_obra_2026_10.xlsx --uf DF,GO --regime ALL \
+    --maintenance SINAPI_Manutenções_2026_10.xlsx
 npm run sinapi:check -- DF 2026-10 NAO_DESONERADO   # recalcula tudo e compara com o custo publicado
 ```
+
+- Uma base (UF + mês + regime) que **já tenha orçamento** não é reimportada: aquela UF/regime é pulada e aparece como
+  bloqueada; as demais seguem.
+- **SINAPI_Manutenções** é cumulativo e nacional (34.393 registros desde 07/2009 no arquivo de 10/2026): cada importação
+  substitui o anterior, e um arquivo mais antigo não sobrescreve um mais novo. Os orçamentos feitos numa referência
+  anterior mostram as composições e os insumos (inclusive de composições auxiliares) desativados ou alterados depois.
 
 Regras do SINAPI reproduzidas (verificadas centavo a centavo nas 10.710 composições do DF, 10/2026):
 - custo do item = `TRUNC(coeficiente × preço, 2)`; custo da composição = soma dos itens;

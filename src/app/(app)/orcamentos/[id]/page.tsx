@@ -7,6 +7,8 @@ import { canEdit } from "@/lib/auth/roles";
 import { BUDGET_STATUS_LABEL, CATEGORY_LABEL, PROJECT_TYPE_LABEL, REGIME_LABEL, WORK_TYPE_LABEL, brl, dateTimeBR, pct, refMonth } from "@/lib/format";
 import { WbsEditor, type WbsLine } from "@/components/wbs-editor";
 import { BudgetTabs } from "@/components/budget-tabs";
+import { MaintenancePanel } from "@/components/maintenance-panel";
+import { checkBudgetMaintenance } from "@/lib/pricing/maintenance-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
     });
   };
   walk(null, 1);
+  const maintenance = await checkBudgetMaintenance(prisma, budget);
   const incomplete = lines.filter((l) => l.kind === "SERVICE" && l.unitCost === null).length;
   const services = lines.filter((l) => l.kind === "SERVICE").length;
 
@@ -65,6 +68,8 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         {incomplete > 0 && <div className="form-error">{incomplete} serviço(s) sem custo: a composição tem insumo sem preço nesta base. Eles não entram nos totais.</div>}
         <WbsEditor budgetId={budget.id} lines={lines} hasSupplyBdi={!!budget.supplyBdi} readOnly={!canEdit(role)} />
       </div>
+
+      {maintenance && <MaintenancePanel check={maintenance} />}
 
       <details className="card">
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>Dados gerais e parâmetros de cálculo</summary>

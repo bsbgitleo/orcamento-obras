@@ -9,7 +9,10 @@ import ExcelJS from "exceljs";
 
 /** sheetNo (1-based, as in worksheets/sheetN.xml) → sheet name */
 export async function readSheetNames(path: string): Promise<Map<number, string>> {
-  const zip = await JSZip.loadAsync(await readFile(path));
+  return sheetNamesFromZip(await JSZip.loadAsync(await readFile(path)), path);
+}
+
+async function sheetNamesFromZip(zip: JSZip, path: string): Promise<Map<number, string>> {
   const workbookXml = await zip.file("xl/workbook.xml")?.async("string");
   const relsXml = await zip.file("xl/_rels/workbook.xml.rels")?.async("string");
   if (!workbookXml || !relsXml) throw new Error(`Arquivo xlsx inválido: ${path}`);
@@ -22,9 +25,10 @@ export async function readSheetNames(path: string): Promise<Map<number, string>>
     if (id && n) targetByRid.set(id, Number(n));
   }
   const names = new Map<number, string>();
-  for (const m of workbookXml.matchAll(/<sheet\b[^>]*>/g)) {
+  // Elements may carry a namespace prefix (<x:sheet …>, as in SINAPI_Manutenções)
+  for (const m of workbookXml.matchAll(/<(?:\w+:)?sheet\b[^>]*>/g)) {
     const name = /\bname="([^"]*)"/.exec(m[0])?.[1];
-    const rid = /\br:id="([^"]+)"/.exec(m[0])?.[1];
+    const rid = /\b\w+:id="([^"]+)"/.exec(m[0])?.[1];
     const n = rid && targetByRid.get(rid);
     if (name && n) names.set(n, decodeXml(name));
   }
@@ -32,7 +36,65 @@ export async function readSheetNames(path: string): Promise<Map<number, string>>
 }
 
 function decodeXml(s: string): string {
-  return s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+}
+
+/** "AB" → 28 (1-based) */
+function columnNumber(ref: string): number {
+  let n = 0;
+  for (const ch of ref.replace(/\d+$/, "")) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n;
+}
+
+/**
+ * Reads one whole sheet into memory as rows of values (1-based like
+ * rowValues): shared/inline strings as text, numbers as numbers. Unlike the
+ * exceljs streaming reader it accepts namespace-prefixed XML (<x:row>, <x:c>),
+ * which is how SINAPI_Manutenções is written. Meant for small sheets.
+ */
+export async function readSheetRows(path: string, sheetName: string): Promise<ExcelJS.CellValue[][]> {
+  const zip = await JSZip.loadAsync(await readFile(path));
+  const names = await sheetNamesFromZip(zip, path);
+  const sheetNo = [...names].find(([, name]) => name === sheetName)?.[0];
+  if (!sheetNo) throw new Error(`Aba "${sheetName}" não encontrada em ${path}`);
+  const xml = await zip.file(`xl/worksheets/sheet${sheetNo}.xml`)?.async("string");
+  if (!xml) throw new Error(`Aba "${sheetName}" sem conteúdo em ${path}`);
+
+  const shared: string[] = [];
+  const sstXml = await zip.file("xl/sharedStrings.xml")?.async("string");
+  if (sstXml) {
+    for (const si of sstXml.matchAll(/<(?:\w+:)?si\b[^>]*>([\s\S]*?)<\/(?:\w+:)?si>/g)) {
+      const texts = [...si[1].matchAll(/<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((t) => decodeXml(t[1]));
+      shared.push(texts.join(""));
+    }
+  }
+
+  const rows: ExcelJS.CellValue[][] = [];
+  for (const row of xml.matchAll(/<(?:\w+:)?row\b[^>]*>([\s\S]*?)<\/(?:\w+:)?row>/g)) {
+    const values: ExcelJS.CellValue[] = [];
+    let next = 1;
+    for (const c of row[1].matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/g)) {
+      const attrs = c[1];
+      const ref = /\br="([A-Z]+\d*)"/.exec(attrs)?.[1];
+      const col = ref ? columnNumber(ref) : next;
+      next = col + 1;
+      const type = /\bt="([^"]+)"/.exec(attrs)?.[1];
+      const body = c[2] ?? "";
+      const raw = /<(?:\w+:)?v\b[^>]*>([\s\S]*?)<\/(?:\w+:)?v>/.exec(body)?.[1];
+      let value: ExcelJS.CellValue = null;
+      if (type === "s" && raw !== undefined) value = shared[Number(raw)] ?? "";
+      else if (type === "inlineStr") value = [...body.matchAll(/<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((t) => decodeXml(t[1])).join("");
+      else if (type === "str" || type === "e") value = raw === undefined ? null : decodeXml(raw);
+      else if (type === "b") value = raw === "1";
+      else if (raw !== undefined && raw !== "") value = Number(raw);
+      values[col] = value;
+    }
+    rows.push(values);
+  }
+  return rows;
 }
 
 export type SheetHandler = (ws: ExcelJS.stream.xlsx.WorksheetReader) => Promise<void>;

@@ -1,10 +1,12 @@
 // src/import/sinapi/load.ts
 // Writes a ParsedReference (+ optional labour shares) into the database as one
-// PriceTable. Re-importing the same origin/UF/month/regime replaces the table.
+// PriceTable. Re-importing the same origin/UF/month/regime replaces the table,
+// unless a budget already uses it (BaseInUseError). Also loads the maintenance log.
 import { createId } from "@paralleldrive/cuid2";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { mapInputKind } from "./map-input-kind";
 import type { ParsedReference } from "./types";
+import type { ParsedMaintenanceFile } from "./parse-maintenance";
 
 export interface LoadResult {
   priceTableId: string;
@@ -13,6 +15,16 @@ export interface LoadResult {
   items: number;
   /** Items whose child (input or composition) was not found; stored without link. */
   unresolvedItems: number;
+}
+
+/** Reimporting a table that budgets already use is refused (decisão #46). */
+export class BaseInUseError extends Error {
+  constructor(public uf: string, public referenceMonth: string, public regime: string, public budgets: number) {
+    const label: Record<string, string> = { NAO_DESONERADO: "sem desoneração", DESONERADO: "com desoneração", SEM_ENCARGOS: "sem encargos sociais" };
+    const [y, m] = referenceMonth.split("-");
+    super(`A base SINAPI ${uf} ${m}/${y} ${label[regime] ?? regime} já é usada por ${budgets} orçamento(s); a reimportação foi bloqueada.`);
+    this.name = "BaseInUseError";
+  }
 }
 
 const BATCH = 2000;
@@ -31,7 +43,10 @@ export async function loadSinapiReference(
 
   const existing = await prisma.priceTable.findFirst({ where: { ...where, companyId: null } });
   if (existing) {
-    log(`Removendo tabela anterior ${parsed.uf} ${parsed.referenceMonth} ${parsed.regime}…`);
+    // Decisão #46: base oficial de um mês não muda depois de usada em orçamento.
+    const budgets = await prisma.budget.count({ where: { priceTableId: existing.id } });
+    if (budgets > 0) throw new BaseInUseError(parsed.uf, parsed.referenceMonth, parsed.regime, budgets);
+    log(`Substituindo a tabela anterior (nenhum orçamento a usa)…`);
     await prisma.priceTable.delete({ where: { id: existing.id } }); // cascades
   }
 
@@ -99,4 +114,40 @@ export async function loadSinapiReference(
   await inBatches(itemRows, (chunk) => prisma.compositionItem.createMany({ data: chunk }));
 
   return { priceTableId: table.id, inputs: inputRows.length, compositions: compRows.length, items: itemRows.length, unresolvedItems: unresolved };
+}
+
+export interface MaintenanceLoadResult {
+  /** "replaced" | "skipped" (arquivo mais antigo que o já gravado) */
+  status: "replaced" | "skipped";
+  fileMonth: string;
+  rows: number;
+  /** Mês do arquivo já gravado, quando havia */
+  previousFileMonth: string | null;
+}
+
+/**
+ * The maintenance report is cumulative and national: the newest file replaces
+ * every SINAPI row. An older file never overwrites a newer one.
+ */
+export async function loadSinapiMaintenance(
+  prisma: PrismaClient,
+  parsed: ParsedMaintenanceFile,
+  opts: { onProgress?: (m: string) => void } = {},
+): Promise<MaintenanceLoadResult> {
+  const log = opts.onProgress ?? (() => {});
+  const current = await prisma.sourceMaintenance.findFirst({
+    where: { origin: "SINAPI" }, orderBy: { fileMonth: "desc" }, select: { fileMonth: true },
+  });
+  const previousFileMonth = current?.fileMonth ?? null;
+  if (previousFileMonth && previousFileMonth > parsed.fileMonth) {
+    log(`Manutenções: já existe o relatório de ${previousFileMonth}, mais novo que o enviado (${parsed.fileMonth}); nada foi alterado.`);
+    return { status: "skipped", fileMonth: parsed.fileMonth, rows: 0, previousFileMonth };
+  }
+  const rows = parsed.rows.map((r) => ({ id: createId(), origin: "SINAPI" as const, fileMonth: parsed.fileMonth, ...r }));
+  await prisma.$transaction(async (tx) => {
+    await tx.sourceMaintenance.deleteMany({ where: { origin: "SINAPI" } });
+    log(`Gravando ${rows.length} manutenções…`);
+    for (let i = 0; i < rows.length; i += BATCH) await tx.sourceMaintenance.createMany({ data: rows.slice(i, i + BATCH) });
+  }, { timeout: 120_000 });
+  return { status: "replaced", fileMonth: parsed.fileMonth, rows: rows.length, previousFileMonth };
 }

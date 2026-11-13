@@ -31,6 +31,13 @@ export async function requireEditor(): Promise<AuthContext> {
   return ctx;
 }
 
+/** Administrador da plataforma (importa as bases oficiais compartilhadas — decisão #45). */
+export async function requirePlatformAdmin(): Promise<AuthContext> {
+  const ctx = await requireActionAuth();
+  if (!ctx.user.isPlatformAdmin) throw new ForbiddenError("Apenas o administrador da plataforma pode importar bases oficiais.");
+  return ctx;
+}
+
 /** Gestor. */
 export async function requireManager(): Promise<AuthContext> {
   const ctx = await requireActionAuth();

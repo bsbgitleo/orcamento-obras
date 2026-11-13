@@ -10,5 +10,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // The SINAPI upload is excluded: the proxy buffers request bodies only up to
+  // 10 MB (proxyClientMaxBodySize) and the Caixa files are larger.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/bases/importacoes).*)"],
 };

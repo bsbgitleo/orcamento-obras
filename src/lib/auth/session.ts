@@ -11,7 +11,7 @@ export const SESSION_COOKIE = "orc_session";
 const SESSION_DAYS = 30;
 
 export interface AuthContext {
-  user: { id: string; email: string; name: string; mustChangePassword: boolean };
+  user: { id: string; email: string; name: string; mustChangePassword: boolean; isPlatformAdmin: boolean };
   company: { id: string; name: string };
   role: Role;
   sessionId: string;
@@ -51,7 +51,10 @@ export const getSession = cache(async (): Promise<AuthContext | null> => {
   const membership = await prisma.membership.findUnique({ where: { userId_companyId: { userId: s.userId, companyId: s.companyId } } });
   if (!membership) return null;
   return {
-    user: { id: s.user.id, email: s.user.email, name: s.user.name, mustChangePassword: s.user.mustChangePassword },
+    user: {
+      id: s.user.id, email: s.user.email, name: s.user.name,
+      mustChangePassword: s.user.mustChangePassword, isPlatformAdmin: s.user.isPlatformAdmin,
+    },
     company: { id: s.company.id, name: s.company.name },
     role: membership.role,
     sessionId: s.id,

@@ -47,3 +47,6 @@ next-env.d.ts
 
 # example env is versioned
 !.env.example
+
+# SINAPI uploads waiting to be imported (IMPORT_DIR)
+/.data/

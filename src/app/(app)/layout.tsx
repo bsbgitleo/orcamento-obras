@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   if (ctx.user.mustChangePassword && !path.startsWith("/conta/senha")) redirect("/conta/senha");
   return (
     <div className="shell">
-      <Sidebar user={{ name: ctx.user.name, email: ctx.user.email }} company={ctx.company.name} role={ctx.role} logout={logout} />
+      <Sidebar user={{ name: ctx.user.name, email: ctx.user.email, isPlatformAdmin: ctx.user.isPlatformAdmin }} company={ctx.company.name} role={ctx.role} logout={logout} />
       <main className="main">{children}</main>
     </div>
   );

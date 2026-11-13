@@ -110,10 +110,13 @@ model User {
   passwordHash       String
   /// Obriga a trocar a senha no próximo login (usuário convidado com senha inicial)
   mustChangePassword Boolean      @default(false)
+  /// Administrador da plataforma (acima das empresas): importa as bases oficiais compartilhadas
+  isPlatformAdmin    Boolean      @default(false)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   memberships        Membership[]
   sessions           Session[]
+  importJobs         ImportJob[]
 }
 
 model Membership {
@@ -422,4 +425,60 @@ model ScheduleEntry {
 
   @@unique([nodeId, month])
   @@index([budgetId])
+}
+
+// ---------------------------------------------------------------------------
+// Importação das bases oficiais pela interface (decisões #32–#34, #45–#47)
+// ---------------------------------------------------------------------------
+
+enum ImportJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Uma importação enviada pela tela Bases → Importar. Roda em segundo plano no
+/// servidor; o progresso fica em `log` (uma linha por evento).
+model ImportJob {
+  id          String          @id @default(cuid())
+  origin      PriceOrigin     @default(SINAPI)
+  status      ImportJobStatus @default(QUEUED)
+  createdById String
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  ufs         String[]
+  regimes     TaxRegime[]
+  /// Nomes dos arquivos enviados (como vieram do navegador)
+  fileNames   String[]
+  log         String          @default("")
+  error       String?
+  /// Resumo por UF/regime e das manutenções (JSON)
+  result      Json?
+  createdAt   DateTime        @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  @@index([createdById])
+  @@index([status])
+}
+
+/// Relatório de manutenções da base oficial (SINAPI_Manutenções_AAAA_MM.xlsx).
+/// O arquivo é cumulativo e nacional: cada importação substitui todas as linhas
+/// da origem. Serve para alertar orçamentos feitos em referência anterior.
+model SourceMaintenance {
+  id             String      @id @default(cuid())
+  origin         PriceOrigin
+  /// Mês em que a manutenção entrou em vigor ("2026-10")
+  referenceMonth String      @db.Char(7)
+  /// INSUMO | COMPOSICAO
+  itemType       String
+  code           String
+  description    String
+  /// Texto da Caixa: DESATIVAÇÃO, ALTERAÇÃO DE ITENS/COEFICIENTES…
+  maintenance    String
+  /// Mês do arquivo de onde a linha veio
+  fileMonth      String      @db.Char(7)
+
+  @@index([origin, code])
+  @@index([origin, referenceMonth])
 }

@@ -17,6 +17,7 @@
     "sinapi:import": "tsx scripts/import-sinapi.ts",
     "sinapi:validate": "tsx scripts/validate-sinapi.ts",
     "sinapi:check": "tsx scripts/check-price-table.ts",
+    "admin:platform": "tsx scripts/platform-admin.ts",
     "setup": "npm run db:migrate"
   },
   "dependencies": {

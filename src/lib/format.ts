@@ -78,4 +78,11 @@ export const BUDGET_STATUS_LABEL: Record<string, string> = {
   ARCHIVED: "Arquivado",
 };
 
+export const IMPORT_STATUS_LABEL: Record<string, string> = {
+  QUEUED: "Na fila",
+  RUNNING: "Importando",
+  DONE: "Concluída",
+  FAILED: "Falhou",
+};
+
 export const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
