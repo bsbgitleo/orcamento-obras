@@ -101,6 +101,7 @@ orçamentos do DNIT. Sem DMT, os serviços aparecem "sem transporte".
 com A1 = 70 + 0,0035 × VMD por faixa (PARE e SIGA, só para o material que passa pela obra) e A2 = 60 s por km em via urbana;
 sem FIT acima de 100 km; 4 casas. O VMD vem dos segmentos da obra (média ponderada pela extensão). Também é possível
 informar um FIT único.
+A exportação Excel traz a aba **Transporte**, com a memória das DMT, do FIT por material e dos momentos.
 **Encargos sociais**: no SICRO eles são por profissional e já estão no custo horário da mão de obra. O app guarda o
 "Analítico de Encargos Sociais" de cada regime (itens A1…D2, grupos A–D e total por código P9xxx), mostra em
 Tabelas importadas → **por profissional** e lista os profissionais do orçamento na aba BDI e encargos da exportação.
@@ -116,7 +117,7 @@ modelo de homogeneização das proponentes.
 
 ## Exportações
 
-Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, BDI e encargos, cronograma,
+Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, BDI e encargos, transporte no SICRO, cronograma,
 curvas ABC — valores iguais aos do app), **proposta comercial** em página A4 (Imprimir → Salvar como PDF) e
 **planilha para proponentes** (sem preços, com especificação, critério de medição e campos da proponente em amarelo).
 A especificação de cada serviço fica na aba **Especificações**; os dados da empresa, em Empresa → Dados da empresa.

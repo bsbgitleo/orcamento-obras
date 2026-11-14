@@ -78,10 +78,11 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 72 | 2026-11-14 | **PARE e SIGA por marcação no orçamento**, com aviso quando a planilha não tem a composição 5213850 (operação de sinalização por bandeirola ou placa) — o manual exige o serviço de sinalização para considerar A1. Cada material vem como "passa pela obra" (desmarcável) e com "aplicar FIT" (o orçamentista pode limitar aos materiais mais significativos) | Aprovado pelo Leo · implementado |
 | 73 | 2026-11-14 | **VMD por faixa por segmentos da obra** (extensão em km + VMD por faixa); o app calcula a média ponderada pela extensão (Equação 1). Com um só segmento, é o próprio valor | Aprovado pelo Leo · implementado |
 | 74 | 2026-11-14 | **FIT com 4 casas, meio para cima** — o Volume 05 não fixa o arredondamento; mesmo critério dos coeficientes do SICRO | Aprovado pelo Leo · implementado |
+| 75 | 2026-11-14 | **Memória do transporte na exportação Excel**: aba "Transporte" (só nas bases SICRO com materiais transportados) com as DMT padrão (leito natural, revestimento primário, pavimentada rural e urbana), o método do FIT (Volume 05 ou valor informado), PARE e SIGA, velocidade urbana, VMD ponderado, fonte e segmentos, a fórmula, cada material (origem, peso, DMT por via, passa pela obra, A1, A2, FIT, pavimentada com FIT) e os momentos por composição de transporte com custos e total. Na Analítica, o transporte do grupo F passa a indicar "transporte na etapa Transportes" quando há DMT | Aprovado pelo Leo · implementado |
 
 ## Estado do código (2026-11-14)
-- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `9cb0161` no GitHub (público). O FIT pelo Volume 05 (#71–#74) está na pasta, **sem commit**.
-- **127 testes**; `tsc` e `eslint` sem erros.
+- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `aae0135` no GitHub (público). A aba Transporte da exportação (#75) está na pasta, **sem commit**.
+- **128 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔

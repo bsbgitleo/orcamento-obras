@@ -5,6 +5,7 @@
 import ExcelJS from "exceljs";
 import { INPUT_KIND_LABEL, REGIME_LABEL, WORK_TYPE_LABEL, dateBR, refMonth } from "@/lib/format";
 import type { BudgetExport, ExportLine } from "./budget-export";
+import { ROAD_LABEL } from "@/core/transport";
 
 const MONEY = '#,##0.00';
 const QTY = '#,##0.00##';
@@ -295,6 +296,97 @@ function abcSheets(wb: ExcelJS.Workbook, d: BudgetExport) {
 }
 
 /** Excel completo: sintética, analítica, BDI e encargos, cronograma e curvas ABC. */
+const KM = '#,##0.0##';
+const FIT4 = '0.0000';
+const FIT_REASON: Record<string, string> = { "sem-dmt": "sem DMT pavimentada", "acima-100km": "DMT pavimentada acima de 100 km", "sem-atraso": "sem atraso" };
+
+/** SICRO: memória do momento de transporte e do FIT (decisão #75). */
+function transportSheet(wb: ExcelJS.Workbook, d: BudgetExport) {
+  const t = d.transport;
+  if (!t) return;
+  const ws = wb.addWorksheet("Transporte", { pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
+  ws.columns = [{ width: 12 }, { width: 46 }, { width: 22 }, { width: 11 }, { width: 10 }, { width: 10 }, { width: 11 }, { width: 11 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 9 }, { width: 13 }];
+  let r = headerBlock(ws, d, "MEMÓRIA DE CÁLCULO DO TRANSPORTE (SICRO)", 13);
+  const kv = (k: string, v: string | number, fmt?: string) => {
+    ws.getCell(r, 1).value = k; ws.getCell(r, 1).font = BOLD;
+    ws.mergeCells(r, 1, r, 2);
+    ws.getCell(r, 3).value = v; if (fmt) ws.getCell(r, 3).numFmt = fmt;
+    r++;
+  };
+  const title = (text: string) => { ws.getCell(r, 1).value = text; ws.getCell(r, 1).font = { bold: true, size: 12 }; r++; };
+  const note = (text: string) => { ws.mergeCells(r, 1, r, 13); const c = ws.getCell(r, 1); c.value = text; c.font = { italic: true, size: 9, color: { argb: "FF555555" } }; c.alignment = { wrapText: true, vertical: "top" }; ws.getRow(r).height = 26; r++; };
+
+  title("Distâncias médias de transporte padrão (km)");
+  kv("Leito natural", t.defaults.LN, KM);
+  kv("Revestimento primário", t.defaults.RP, KM);
+  kv("Pavimentada — rodovia rural (DMTr)", t.defaults.rural, KM);
+  kv("Pavimentada — via urbana (DMTu)", t.defaults.urban, KM);
+  r++;
+
+  title("Fator de Interferência de Tráfego (FIT)");
+  if (t.fit.mode === "MANUAL") {
+    kv("Método", "FIT único informado pelo orçamentista");
+    kv("FIT (multiplica a DMT pavimentada)", Number(t.fit.manual), FIT4);
+  } else {
+    kv("Método", "Manual de Custos de Infraestrutura de Transportes, Volume 05, 2ª edição (DNIT, 2025)");
+    kv("Operação PARE e SIGA", t.fit.stopGo ? (t.fit.stopGoInBudget ? "Sim (composição 5213850 na planilha)" : "Sim (a composição 5213850 não está na planilha)") : "Não");
+    kv("Velocidade em via urbana (km/h)", Number(t.fit.urbanSpeed));
+    kv("VMD por faixa (média ponderada)", t.fit.vmd ? Number(t.fit.vmd) : "não informado", '#,##0.0');
+    kv("Fonte do VMD e justificativas", t.fit.source ?? "não informada");
+    if (t.fit.segments.length) {
+      tableHeader(ws, r, ["Segmento", "", "Extensão (km)", "VMD por faixa"]); ws.mergeCells(r, 1, r, 2); r++;
+      for (const g of t.fit.segments) {
+        ws.mergeCells(r, 1, r, 2);
+        ws.getRow(r).values = [g.description ?? "—", "", Number(g.lengthKm), Number(g.vmdPerLane)];
+        ws.getCell(r, 3).numFmt = KM; ws.getCell(r, 4).numFmt = '#,##0.0';
+        r++;
+      }
+    }
+    note("FIT = 1 + (A1 + A2) ÷ (DMTp × 60). A1 = 70 + 0,0035 × VMD por faixa (s), só com PARE e SIGA e para o material que passa pela obra; "
+      + "A2 = (3.600 ÷ Vu − 60) × DMTu (s; 60 s/km com Vu = 30 km/h); DMTp = DMTr + DMTu; sem FIT acima de 100 km; FIT com 4 casas. "
+      + "A DMT pavimentada com FIT (FIT × DMTp) entra na parcela F.");
+  }
+  r++;
+
+  title("Materiais transportados");
+  tableHeader(ws, r, ["Código", "Material", "Origem", "Peso (t)", "LN (km)", "RP (km)", "Pav. rural (km)", "Pav. urbana (km)", "Passa pela obra", "A1 (s)", "A2 (s)", "FIT", "Pav. com FIT (km)"]);
+  r++;
+  const calc = t.fit.mode === "CALCULATED";
+  for (const m of t.materials) {
+    ws.getRow(r).values = [
+      m.code, m.description, m.origin ?? "", Number(m.weight), m.LN, m.RP, m.rural, m.urban,
+      calc ? (m.passesWorksite ? "sim" : "não") : "", calc ? Number(m.a1) : null, calc ? Number(m.a2) : null, Number(m.fit), m.pavedWithFit,
+    ];
+    ws.getCell(r, 4).numFmt = '#,##0.0000##';
+    [5, 6, 7, 8, 13].forEach((c) => { ws.getCell(r, c).numFmt = KM; });
+    [10, 11].forEach((c) => { ws.getCell(r, c).numFmt = '#,##0.00'; });
+    ws.getCell(r, 12).numFmt = FIT4;
+    const why = calc && !m.applyFit ? "FIT não aplicado a este material" : m.reason ? FIT_REASON[m.reason] : null;
+    if (why) ws.getCell(r, 12).note = why;
+    r++;
+  }
+  r++;
+
+  title("Momentos de transporte (etapa “Transportes” da planilha)");
+  tableHeader(ws, r, ["Código", "Composição de transporte", "Via", "Momento (t·km)", "Custo unit.", "Custo total"]);
+  r++;
+  const first = r;
+  for (const l of t.lines) {
+    ws.getRow(r).values = [l.code, l.description, ROAD_LABEL[l.road], Number(l.moment), num(l.unitCost), num(l.totalCost)];
+    ws.getCell(r, 4).numFmt = '#,##0.0000'; ws.getCell(r, 5).numFmt = MONEY; ws.getCell(r, 6).numFmt = MONEY;
+    ws.getCell(r, 2).alignment = { wrapText: true };
+    r++;
+  }
+  if (t.lines.length) {
+    const total = t.lines.reduce((a, l) => a + Number(l.totalCost ?? 0), 0);
+    ws.getCell(r, 5).value = "Total"; ws.getCell(r, 5).font = BOLD;
+    ws.getCell(r, 6).value = { formula: `SUM(F${first}:F${r - 1})`, result: Math.round(total * 100) / 100 };
+    ws.getCell(r, 6).numFmt = MONEY; ws.getCell(r, 6).font = BOLD;
+  } else {
+    ws.getCell(r, 1).value = "Sem DMT informada: nenhum momento de transporte.";
+  }
+}
+
 export async function buildBudgetWorkbook(d: BudgetExport): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = d.company.name;
@@ -302,6 +394,7 @@ export async function buildBudgetWorkbook(d: BudgetExport): Promise<Buffer> {
   sintetica(wb, d);
   analitica(wb, d);
   bdiSheet(wb, d);
+  transportSheet(wb, d);
   cronograma(wb, d);
   abcSheets(wb, d);
   return Buffer.from(await wb.xlsx.writeBuffer());

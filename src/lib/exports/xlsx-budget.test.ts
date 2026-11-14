@@ -36,6 +36,7 @@ const data: BudgetExport = {
   analytic: [],
   schedule: null,
   abc: { services: [], inputs: [], servicesTotal: new Decimal(0), inputsTotal: new Decimal(0), directCost: new Decimal(1918.7), skipped: 1 },
+  transport: null,
 };
 
 async function read(buf: Buffer) {
@@ -55,6 +56,29 @@ describe("Excel exports", () => {
     expect(total.result).toBe(2376.4);
     expect(ws.getCell(stageRow + 1, 9).value).toBe(230.87);
     expect(String(ws.getCell(stageRow + 3, 4).value)).toContain("SEM CUSTO");
+  });
+
+  it("SICRO: transport sheet with defaults, FIT memory, materials and moments", async () => {
+    const sicro: BudgetExport = {
+      ...data, budget: { ...data.budget, base: { ...data.budget.base, origin: "SICRO", referenceMonth: "2026-07" }, socialCharges: null },
+      transport: {
+        configured: true, defaults: { LN: 0, RP: 3, rural: 50, urban: 10 },
+        fit: { mode: "CALCULATED", manual: "1", stopGo: true, stopGoInBudget: false, urbanSpeed: "30", vmd: "5000", source: "PNCT 2024", segments: [{ description: "km 0 a 20", lengthKm: "20", vmdPerLane: "5000" }] },
+        materials: [{ code: "M2758", description: "Apoio metálico", origin: "Fornecedor X", weight: "0.076", LN: null, RP: null, rural: 50, urban: 10, passesWorksite: true, applyFit: true, fit: "1.191", a1: "87.5", a2: "600", reason: null, pavedWithFit: 71.46 }],
+        lines: [{ code: "5914614", description: "Transporte com guindauto", road: "P", unit: "tkm", moment: "5.431", unitCost: "1.97", totalCost: "10.69" }],
+      },
+    };
+    const wb = await read(await buildBudgetWorkbook(sicro));
+    expect(wb.worksheets.map((w) => w.name)).toContain("Transporte");
+    const ws = wb.getWorksheet("Transporte")!;
+    const rowOf = (text: string) => ws.getColumn(1).values.findIndex((v) => v === text);
+    expect(ws.getCell(rowOf("Pavimentada — via urbana (DMTu)"), 3).value).toBe(10);
+    expect(String(ws.getCell(rowOf("Operação PARE e SIGA"), 3).value)).toContain("não está na planilha");
+    const m = rowOf("M2758");
+    expect([ws.getCell(m, 10).value, ws.getCell(m, 11).value, ws.getCell(m, 12).value, ws.getCell(m, 13).value]).toEqual([87.5, 600, 1.191, 71.46]);
+    const l = rowOf("5914614");
+    expect([ws.getCell(l, 3).value, ws.getCell(l, 4).value, ws.getCell(l, 6).value]).toEqual(["pavimentada", 5.431, 10.69]);
+    expect((ws.getCell(l + 1, 6).value as { formula: string }).formula).toBe(`SUM(F${l}:F${l})`);
   });
 
   it("bidder sheet: no prices, ROUND formula per item, every item in the stage sum, brand only where required", async () => {

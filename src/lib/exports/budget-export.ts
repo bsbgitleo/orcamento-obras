@@ -10,6 +10,8 @@ import { computeScheduleTree, type ScheduleTreeResult } from "@/core/schedule";
 import type { Dec } from "@/core/money";
 import { loadBudgetCatalog } from "@/lib/pricing/budget-catalog";
 import { buildAbcReport, type AbcReport } from "@/lib/pricing/abc";
+import { computeBudgetTransport, TRANSPORT_LINE } from "@/lib/pricing/transport";
+import type { Road } from "@/core/transport";
 
 export interface ExportLine {
   id: string;
@@ -60,6 +62,22 @@ export interface AnalyticComposition {
   usedBy: string[];
 }
 
+/** SICRO: memória do momento de transporte e do FIT (decisões #66–#68, #71–#75) */
+export interface TransportExport {
+  configured: boolean;
+  defaults: { LN: number; RP: number; rural: number; urban: number };
+  fit: {
+    mode: "CALCULATED" | "MANUAL"; manual: string; stopGo: boolean; stopGoInBudget: boolean; urbanSpeed: string;
+    vmd: string | null; source: string | null; segments: { description: string | null; lengthKm: string; vmdPerLane: string }[];
+  };
+  materials: {
+    code: string; description: string; origin: string | null; weight: string;
+    LN: number | null; RP: number | null; rural: number | null; urban: number | null;
+    passesWorksite: boolean; applyFit: boolean; fit: string; a1: string; a2: string; reason: string | null; pavedWithFit: number | null;
+  }[];
+  lines: { code: string; description: string; road: Road; unit: string; moment: string; unitCost: string | null; totalCost: string | null }[];
+}
+
 export interface BudgetExport {
   company: { name: string; document: string | null; address: string | null; phone: string | null; email: string | null; technicalLead: string | null; technicalRegistry: string | null };
   project: { id: string; code: string; name: string; type: string; category: string; uf: string; address: string | null; biddingAgency: string | null; biddingNumber: string | null; biddingModality: string | null };
@@ -83,20 +101,22 @@ export interface BudgetExport {
   analytic: AnalyticComposition[];
   schedule: ScheduleTreeResult | null;
   abc: AbcReport;
+  /** Só nas bases SICRO com materiais transportados */
+  transport: TransportExport | null;
 }
 
 const GROUP_KIND: Record<string, string> = {
   A: "Equipamento", B: "Mão de obra", C: "Material", D: "Atividade auxiliar", E: "Tempo fixo", F: "Transporte",
 };
 
-function describeChild(child: CompositionChild, catalog: Catalog): Omit<AnalyticItem, "unitPrice" | "cost"> {
+function describeChild(child: CompositionChild, catalog: Catalog, transportConfigured: boolean): Omit<AnalyticItem, "unitPrice" | "cost"> {
   const group = "group" in child ? child.group ?? null : null;
   if (child.type === "PERCENTUAL") {
     return { kind: "Acréscimo", group, code: "", description: child.label ?? `${child.percent} % sobre o grupo ${group}`, unit: "%", coefficient: String(child.percent) };
   }
   if (child.type === "TRANSPORTE") {
     const ref = child.inputId ? catalog.getInput(child.inputId) : child.compositionId ? catalog.getComposition(child.compositionId) : undefined;
-    return { kind: "Transporte", group: "F", code: ref?.code ?? "", description: `${ref?.description ?? ""} — DMT não informada (sem custo)`, unit: "t", coefficient: String(child.coefficient) };
+    return { kind: "Transporte", group: "F", code: ref?.code ?? "", description: `${ref?.description ?? ""} — ${transportConfigured ? "transporte na etapa Transportes (aba Transporte)" : "DMT não informada (sem custo)"}`, unit: "t", coefficient: String(child.coefficient) };
   }
   if (child.type === "COMPOSICAO_AUXILIAR") {
     const c = catalog.getComposition(child.compositionId);
@@ -151,6 +171,28 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
   };
   walk(null, 1);
 
+  // SICRO: momento de transporte e FIT, como na aba Transporte
+  const t = budget.priceTable.origin === "SICRO" ? await computeBudgetTransport(prisma, budget.id) : null;
+  const transport: TransportExport | null = t && t.materials.length ? {
+    configured: t.configured,
+    defaults: { LN: Number(t.defaults.LN), RP: Number(t.defaults.RP), rural: Number(t.defaults.P), urban: t.defaultUrban },
+    fit: {
+      mode: t.fit.mode, manual: t.fit.manual, stopGo: t.fit.stopGo, stopGoInBudget: t.fit.stopGoInBudget, urbanSpeed: t.fit.urbanSpeed,
+      vmd: t.fit.vmd, source: t.fit.source, segments: t.fit.segments.map(({ description, lengthKm, vmdPerLane }) => ({ description, lengthKm, vmdPerLane })),
+    },
+    materials: t.materials.map((m) => ({
+      code: m.code, description: m.description, origin: m.override?.note ?? null, weight: m.weight.toDecimalPlaces(6).toString(),
+      LN: m.transportCodes.LN ? Number(m.dmt.LN) : null, RP: m.transportCodes.RP ? Number(m.dmt.RP) : null,
+      rural: m.transportCodes.P ? m.dmtRural : null, urban: m.transportCodes.P ? m.dmtUrban : null,
+      passesWorksite: m.passesWorksite, applyFit: m.applyFit, fit: m.fit.value, a1: m.fit.a1, a2: m.fit.a2, reason: m.fit.reason,
+      pavedWithFit: m.transportCodes.P ? Number((Number(m.dmt.P) * Number(m.fit.value)).toFixed(3)) : null,
+    })),
+    lines: t.lines.map((l) => {
+      const node = budget.nodes.find((n) => n.autoKind === TRANSPORT_LINE && n.compositionId === l.compositionId);
+      return { code: l.code, description: l.description, road: l.road, unit: l.unit, moment: l.moment.toString(), unitCost: l.unitCost, totalCost: node?.totalCost?.toString() ?? null };
+    }),
+  } : null;
+
   // Composições abertas (cada composição uma vez, com as linhas que a usam)
   const services = lines.filter((l) => l.kind === "SERVICE" && l.compositionKey);
   const analytic: AnalyticComposition[] = [];
@@ -173,7 +215,7 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
           key, code: comp.code, description: comp.description, unit: comp.unit,
           source: isOwnCompositionKey(key) ? "Própria" : sourceLabel, method: comp.method === "SICRO" ? "SICRO" : "SINAPI",
           production: comp.production?.toString() ?? null, fic: comp.fic?.toString() ?? null, cost,
-          items: cost.items.map((ic) => ({ ...describeChild(ic.item, catalog), unitPrice: ic.unitPrice, cost: ic.item.type === "TRANSPORTE" ? null : ic.cost })),
+          items: cost.items.map((ic) => ({ ...describeChild(ic.item, catalog, t?.configured ?? false), unitPrice: ic.unitPrice, cost: ic.item.type === "TRANSPORTE" ? null : ic.cost })),
           usedBy: [],
         };
         seen.set(key, entry);
@@ -222,6 +264,6 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
       proposalValidityDays: budget.proposalValidityDays, executionTerm: budget.executionTerm, paymentTerms: budget.paymentTerms, proposalNotes: budget.proposalNotes,
       bidderInstructions: budget.bidderInstructions, bidderPremises: budget.bidderPremises, scheduleMonths: budget.scheduleMonths,
     },
-    lines, analytic, schedule, abc,
+    lines, analytic, schedule, abc, transport,
   };
 }
