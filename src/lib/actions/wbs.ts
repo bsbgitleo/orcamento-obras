@@ -24,7 +24,15 @@ async function ownNode(nodeId: string) {
   const ctx = await requireEditor();
   const n = await prisma.wbsNode.findFirst({ where: { id: nodeId, budget: { project: { companyId: ctx.company.id } } } });
   if (!n) throw new Error("Item não encontrado.");
+  // Linhas geradas pelo app (transporte do SICRO) mudam pela aba Transporte (decisão #67)
+  if (n.autoKind) throw new Error("Este item é calculado pelo app (momento de transporte). Altere as DMTs na aba Transporte.");
   return n;
+}
+
+async function assertEditableParent(parentId: string | null) {
+  if (!parentId) return;
+  const p = await prisma.wbsNode.findUnique({ where: { id: parentId }, select: { autoKind: true } });
+  if (p?.autoKind) throw new Error("A etapa de transportes é calculada pelo app; crie outra etapa para seus serviços.");
 }
 
 async function projectIdOf(budgetId: string): Promise<string> {
@@ -72,6 +80,7 @@ const stageSchema = z.object({ description: requiredText("Descrição") });
 
 export async function addStage(budgetId: string, parentId: string | null, _prev: ActionState, fd: FormData): Promise<ActionState> {
   await ownBudget(budgetId);
+  await assertEditableParent(parentId);
   const r = parseForm(stageSchema, fd);
   if (!r.ok) return r.state;
   if (parentId) {
@@ -96,6 +105,7 @@ const serviceSchema = z.object({
 
 export async function addService(budgetId: string, parentId: string, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const budget = await ownBudget(budgetId);
+  await assertEditableParent(parentId);
   const r = parseForm(serviceSchema, fd);
   if (!r.ok) return r.state;
   const parent = await prisma.wbsNode.findUnique({ where: { id: parentId } });

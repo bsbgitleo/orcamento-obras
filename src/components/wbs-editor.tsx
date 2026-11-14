@@ -26,6 +26,8 @@ export interface WbsLine {
   ownComposition: boolean;
   /** SICRO: composição com momento de transporte sem DMT */
   transportPending?: boolean;
+  /** Linha gerada pelo app (etapa de transportes do SICRO) */
+  auto?: boolean;
   isFirst: boolean;
   isLast: boolean;
 }
@@ -107,25 +109,26 @@ function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, readOnly, editing
       <td className="mono">{l.code}</td>
       <td className="mono muted">{l.compositionCode ?? ""}{l.ownComposition && <div><span className="badge" title="Composição própria da empresa, precificada na base deste orçamento">própria</span></div>}</td>
       <td style={indent}>
-        {editing ? (
+        {editing && !l.auto ? (
           <DescriptionForm nodeId={l.id} value={l.description} onDone={onEditDone} />
         ) : (
           <span role="button" tabIndex={0} onClick={onEdit} onKeyDown={(e) => e.key === "Enter" && onEdit()} title="Editar descrição" style={{ cursor: "text" }}>
             {l.description}
             {l.isSupplyItem && <span className="badge" style={{ marginLeft: 8 }}>fornecimento</span>}
             {!isStage && l.unitCost === null && <span className="badge danger" style={{ marginLeft: 8 }}>sem custo</span>}
+            {l.auto && <span className="badge" style={{ marginLeft: 8 }} title="Calculado pelo app a partir das quantidades e das DMTs (aba Transporte)">automático</span>}
             {l.transportPending && <span className="badge warn" style={{ marginLeft: 8 }} title="Momento de transporte (grupo F) sem DMT: custo igual ao publicado, sem transporte">sem transporte</span>}
           </span>
         )}
       </td>
       <td>{l.unit ?? ""}</td>
-      <td className="num">{isStage ? "" : readOnly ? (l.quantity ?? "0").replace(".", ",") : <QuantityCell nodeId={l.id} value={l.quantity ?? "0"} />}</td>
+      <td className="num">{isStage ? "" : readOnly || l.auto ? (l.quantity ?? "0").replace(".", ",") : <QuantityCell nodeId={l.id} value={l.quantity ?? "0"} />}</td>
       <td className="num">{isStage ? "" : brl(l.unitCost)}</td>
       <td className="num">{brl(l.totalCost)}</td>
       <td className="num">{isStage ? "" : brl(l.unitPrice)}</td>
       <td className="num"><strong>{brl(l.totalPrice)}</strong></td>
       <td className="row-actions">
-        {readOnly ? null : <>
+        {readOnly || l.auto ? null : <>
         {isStage && <button type="button" className="icon" title="Adicionar subetapa" onClick={() => onAdd("STAGE")}>+E</button>}
         {isStage && <button type="button" className="icon" title="Adicionar serviço" onClick={() => onAdd("SERVICE")}>+S</button>}
         {!isStage && hasSupplyBdi && <button type="button" className="icon" title="Alternar mero fornecimento (BDI reduzido)" onClick={() => run(() => toggleSupplyItem(l.id))}>BDI</button>}

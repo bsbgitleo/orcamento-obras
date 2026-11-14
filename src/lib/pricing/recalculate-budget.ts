@@ -7,6 +7,7 @@ import { calculateCompositionCost, type CompositionCost } from "@/core/compositi
 import { buildTree, computeBudget, type BudgetNodeInput, type BudgetResult } from "@/core/budget";
 import { ownCompositionKey } from "@/core/own-composition";
 import { loadBudgetCatalog } from "./budget-catalog";
+import { syncTransportNodes } from "./transport";
 
 /** Catalog key of the composition a service uses (official id or own key). */
 export function serviceCompositionKey(n: { compositionId: string | null; ownCompositionId: string | null }): string | null {
@@ -14,6 +15,10 @@ export function serviceCompositionKey(n: { compositionId: string | null; ownComp
 }
 
 export async function recalculateBudget(prisma: PrismaClient, budgetId: string): Promise<BudgetResult> {
+  // SICRO: a etapa "Transportes" segue as quantidades e as DMTs (decisão #67)
+  const table = await prisma.budget.findUniqueOrThrow({ where: { id: budgetId }, select: { priceTable: { select: { origin: true } } } });
+  if (table.priceTable.origin === "SICRO") await syncTransportNodes(prisma, budgetId);
+
   const budget = await prisma.budget.findUniqueOrThrow({
     where: { id: budgetId },
     include: { bdi: true, supplyBdi: true, nodes: true, project: { select: { companyId: true } } },

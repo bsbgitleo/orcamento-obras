@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require";
 import { canEdit } from "@/lib/auth/roles";
 import { BudgetTabs } from "@/components/budget-tabs";
+import { isSicroProject } from "@/lib/budget-origin";
 import { ScheduleEditor } from "@/components/schedule-editor";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function SchedulePage(props: PageProps<"/orcamentos/[id]/cr
       <div className="toolbar">
         <h1 style={{ margin: 0 }}><span className="mono muted">{project.code}</span> · {project.name}</h1>
       </div>
-      <BudgetTabs projectId={project.id} />
+      <BudgetTabs projectId={project.id} sicro={await isSicroProject(project.id)} />
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Cronograma físico-financeiro</h2>
         {stages.length === 0

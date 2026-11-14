@@ -9,7 +9,7 @@ import { WbsEditor, type WbsLine } from "@/components/wbs-editor";
 import { BudgetTabs } from "@/components/budget-tabs";
 import { MaintenancePanel } from "@/components/maintenance-panel";
 import { checkBudgetMaintenance } from "@/lib/pricing/maintenance-alerts";
-import { servicesWithPendingTransport } from "@/lib/pricing/transport";
+import { isTransportConfigured, servicesWithPendingTransport } from "@/lib/pricing/transport";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
       client: true,
       budgets: {
         orderBy: { revision: "desc" }, take: 1,
-        include: { priceTable: true, bdi: true, supplyBdi: true, socialCharges: true, nodes: { include: { composition: { select: { code: true } }, ownComposition: { select: { code: true } } } } },
+        include: { priceTable: true, bdi: true, supplyBdi: true, socialCharges: true, transportDmts: true, nodes: { include: { composition: { select: { code: true } }, ownComposition: { select: { code: true } } } } },
       },
     },
   });
@@ -40,14 +40,16 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         id: n.id, parentId: n.parentId, code: n.code, level, kind: n.kind, description: n.description, unit: n.unit,
         quantity: n.quantity?.toString() ?? null, unitCost: n.unitCost?.toString() ?? null, totalCost: n.totalCost?.toString() ?? null,
         unitPrice: n.unitPrice?.toString() ?? null, totalPrice: n.totalPrice?.toString() ?? null,
-        isSupplyItem: n.isSupplyItem, compositionCode: n.ownComposition?.code ?? n.composition?.code ?? null, ownComposition: !!n.ownCompositionId, isFirst: i === 0, isLast: i === list.length - 1,
+        isSupplyItem: n.isSupplyItem, compositionCode: n.ownComposition?.code ?? n.composition?.code ?? null, ownComposition: !!n.ownCompositionId, auto: !!n.autoKind, isFirst: i === 0, isLast: i === list.length - 1,
       });
       if (n.kind === "STAGE") walk(n.id, level + 1);
     });
   };
   walk(null, 1);
   const maintenance = await checkBudgetMaintenance(prisma, { ...budget, companyId: company.id });
-  const pendingTransport = budget.priceTable.origin === "SICRO" ? await servicesWithPendingTransport(prisma, budget.priceTableId, company.id, budget.nodes) : new Set<string>();
+  const sicro = budget.priceTable.origin === "SICRO";
+  const transportConfigured = sicro && isTransportConfigured(budget, budget.transportDmts);
+  const pendingTransport = sicro ? await servicesWithPendingTransport(prisma, budget.priceTableId, company.id, budget.nodes, transportConfigured) : new Set<string>();
   for (const l of lines) if (pendingTransport.has(l.id)) l.transportPending = true;
   const transportCount = pendingTransport.size;
   const incomplete = lines.filter((l) => l.kind === "SERVICE" && l.unitCost === null).length;
@@ -59,7 +61,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         <h1 style={{ margin: 0 }}><span className="mono muted">{project.code}</span> · {project.name}</h1>
         <span className="badge">{BUDGET_STATUS_LABEL[budget.status]} · R{budget.revision}</span>
       </div>
-      <BudgetTabs projectId={project.id} />
+      <BudgetTabs projectId={project.id} sicro={sicro} />
 
       <div className="totals" style={{ marginBottom: 18 }}>
         <div className="box"><div className="label">Custo direto</div><div className="value">{brl(budget.directCost)}</div></div>
@@ -70,7 +72,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Planilha orçamentária <span className="muted" style={{ fontWeight: 400 }}>· {services} serviço(s)</span></h2>
         {incomplete > 0 && <div className="form-error">{incomplete} serviço(s) sem custo: a composição tem insumo sem preço nesta base. Eles não entram nos totais.</div>}
-        {transportCount > 0 && <div className="form-error" style={{ background: "#fff8ec", borderColor: "#f0d9a8", color: "#7a5300" }}>{transportCount} serviço(s) do SICRO com momento de transporte (grupo F) sem DMT: o custo está igual ao publicado pelo DNIT, que não inclui o transporte. A DMT do projeto entra numa próxima etapa.</div>}
+        {transportCount > 0 && <div className="form-error" style={{ background: "#fff8ec", borderColor: "#f0d9a8", color: "#7a5300" }}>{transportCount} serviço(s) do SICRO com momento de transporte (grupo F) sem DMT: o custo está igual ao publicado pelo DNIT, que não inclui o transporte. Informe as distâncias na aba <Link href={`/orcamentos/${project.id}/transporte`}>Transporte</Link> e o app cria a etapa de transportes.</div>}
         <WbsEditor budgetId={budget.id} projectId={project.id} lines={lines} hasSupplyBdi={!!budget.supplyBdi} readOnly={!canEdit(role)} />
       </div>
 

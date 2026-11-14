@@ -87,3 +87,10 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 - Feito (sem commit): `src/core/sheet-import.ts` (cabeçalho, papéis das colunas, hierarquia pela numeração) com testes; leitor `src/lib/imports/sheet-grid.ts`; ações de leitura, busca de códigos e gravação; tela `/orcamentos/[id]/importar` com pré-visualização; opção no assistente; atalho no orçamento vazio.
 - Testes com arquivos reais: Anexo II = 8 etapas e 57 serviços, carta-convite = 7 e 44 (iguais aos originais); importação do Anexo II com especificação, critério e marca; planilha com preço com BDI → 87879 vinculado (R$ 5,47) e uma composição própria a R$ 20,00 que volta a R$ 24,77 com BDI; reimportação da exportação do app vinculando SINAPI e CP-0001.
 - Nos testes apareceu uma falha intermitente no leitor do SINAPI (textos "[object Object]" sob carga). Causa: o streaming do exceljs com abas antes dos textos compartilhados — ordem que o próprio arquivo da Caixa tem. Corrigido lendo essas abas com o leitor próprio (#65); 8 execuções seguidas da suíte sem falha; reimportações reais iguais ao publicado.
+
+## Sessão 2 (cont.) — sábado, 14/11/2026 · momento de transporte do SICRO
+- Commit e envio da importação de planilha (`8051c14`).
+- Pesquisa: o DNIT lança o transporte como itens em t·km por composição de transporte (memória de cálculo DNIT/TO 2018: peso = fator × quantidade; momento = peso × DMT pavimentada / não pavimentada). A fórmula do FIT (2025) só apareceu em site de terceiro.
+- Respostas do Leo: itens em t·km como o DNIT; DMT padrão + ajuste por material; FIT opcional, padrão 1 (#66–#68).
+- Feito (sem commit): `src/core/transport.ts` com testes; migração `20261114040000_transport`; sincronização da etapa "Transportes" no recálculo; aba Transporte; linhas automáticas protegidas na EAP.
+- Teste no navegador (ORC-0003): 5 materiais, inclusive os do microconcreto auxiliar; DMT pavimentada 50 km e brita a 35 km (+3 km de revestimento primário) → 4 itens de transporte (ex.: guindauto 0,076 t × 50 km = 3,8 t·km × R$ 1,97); mudar a quantidade do serviço de 2 para 4 levou o item a 7,6 t·km sozinho.

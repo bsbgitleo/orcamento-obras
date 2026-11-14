@@ -92,8 +92,10 @@ npm run sicro:import -- --dir "DF 07-2026" --regime ALL
 Método do DNIT reproduzido (6.619 composições do DF 07/2026 iguais ao publicado): itens com 4 casas (meio para cima);
 execução = (equipamentos + mão de obra) ÷ produção; **FIC = FIC × (custo improdutivo dos equipamentos + mão de obra) ÷
 produção**; acréscimos percentuais dentro dos grupos; auxiliares e tempo fixo pelo custo final; total com 2 casas.
-O momento de transporte (grupo F) depende da DMT do projeto e ainda não é calculado: esses serviços aparecem
-"sem transporte", com o custo igual ao publicado.
+**Momento de transporte** (grupo F): na aba **Transporte** do orçamento SICRO, informe a DMT padrão por tipo de via
+(e, se quiser, a de materiais específicos e o FIT). O app calcula peso × DMT de cada material (inclusive das
+atividades auxiliares) e mantém uma etapa "Transportes" com um item em t·km por composição de transporte, como nos
+orçamentos do DNIT. Sem DMT, os serviços aparecem "sem transporte".
 
 ## Importação de planilha orçamentária
 

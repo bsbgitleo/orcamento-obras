@@ -401,6 +401,13 @@ model Budget {
   bidderInstructions String?
   bidderPremises     String?
 
+  // SICRO — momento de transporte (decisões #66–#68): DMT padrão por via (km) e FIT
+  dmtNatural  Decimal? @db.Decimal(10, 3) // leito natural
+  dmtPrimary  Decimal? @db.Decimal(10, 3) // revestimento primário
+  dmtPaved    Decimal? @db.Decimal(10, 3) // pavimentada
+  fit         Decimal? @db.Decimal(8, 5)  // fator de interferência de tráfego (padrão 1)
+  transportDmts TransportDmt[]
+
   // Totais desnormalizados (recalculados a cada alteração)
   directCost Decimal @default(0) @db.Decimal(15, 2)
   salePrice  Decimal @default(0) @db.Decimal(15, 2)
@@ -445,6 +452,8 @@ model WbsNode {
   totalPrice    Decimal?     @db.Decimal(15, 2) // TRUNC(qtd × unitPrice, 2)
   /// Item de mero fornecimento → usa supplyBdi do orçamento
   isSupplyItem  Boolean      @default(false)
+  /// Linha gerada pelo app (TRANSPORT_STAGE / TRANSPORT): não se edita à mão (decisão #67)
+  autoKind            String?
   /// Planilha para proponentes (decisão #60): especificação, critério de medição e se exige marca/produto
   specification       String?
   measurementCriteria String?
@@ -610,4 +619,21 @@ model OwnCompositionItem {
   @@index([compositionId])
   @@index([ownInputId])
   @@index([ownCompositionId])
+}
+
+/// DMT de um material específico, diferente da DMT padrão do orçamento (decisão #66)
+model TransportDmt {
+  id           String   @id @default(cuid())
+  budgetId     String
+  budget       Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  /// Código do material (insumo Mxxxx ou composição de material produzido)
+  materialCode String
+  dmtNatural   Decimal? @db.Decimal(10, 3)
+  dmtPrimary   Decimal? @db.Decimal(10, 3)
+  dmtPaved     Decimal? @db.Decimal(10, 3)
+  /// De onde vem (pedreira, jazida, fornecedor…)
+  note         String?
+
+  @@unique([budgetId, materialCode])
+  @@index([budgetId])
 }

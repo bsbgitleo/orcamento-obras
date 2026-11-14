@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function BudgetTabs({ projectId }: { projectId: string }) {
+export function BudgetTabs({ projectId, sicro = false }: { projectId: string; sicro?: boolean }) {
   const path = usePathname();
   const base = `/orcamentos/${projectId}`;
   const tabs = [
     { href: base, label: "Planilha" },
     { href: `${base}/curva-abc`, label: "Curva ABC" },
     { href: `${base}/cronograma`, label: "Cronograma" },
+    ...(sicro ? [{ href: `${base}/transporte`, label: "Transporte" }] : []),
     { href: `${base}/especificacoes`, label: "Especificações" },
     { href: `${base}/exportar`, label: "Exportar" },
   ];
