@@ -58,6 +58,13 @@ describe("momento de transporte (SICRO)", () => {
     ]);
   });
 
+  it("FIT por material (Volume 05): cada material com o seu fator na pavimentada", () => {
+    const w = materialWeights(services, cat);
+    const lines = transportMoments(w, () => ({ LN: 0, RP: 0, P: 20 }), (code) => (code === "M2758" ? "1.0729" : "1"));
+    // 0,020745 × 20 = 0,4149 ; 0,108 × 20 × 1,0729 = 2,317464 → 2,3175
+    expect(lines.map((l) => [l.code, l.moment.toString()])).toEqual([["5914479", "2.7324"]]);
+  });
+
   it("sem DMT não há momento", () => {
     const w = materialWeights(services, cat);
     expect(transportMoments(w, () => ({ LN: 0, RP: 0, P: 0 }))).toEqual([]);

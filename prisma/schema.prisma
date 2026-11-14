@@ -409,9 +409,16 @@ model Budget {
   // SICRO — momento de transporte (decisões #66–#68): DMT padrão por via (km) e FIT
   dmtNatural  Decimal? @db.Decimal(10, 3) // leito natural
   dmtPrimary  Decimal? @db.Decimal(10, 3) // revestimento primário
-  dmtPaved    Decimal? @db.Decimal(10, 3) // pavimentada
-  fit         Decimal? @db.Decimal(8, 5)  // fator de interferência de tráfego (padrão 1)
+  dmtPaved    Decimal? @db.Decimal(10, 3) // pavimentada em rodovia rural (DMTr)
+  dmtUrban    Decimal? @db.Decimal(10, 3) // pavimentada em via urbana (DMTu) — Volume 05 (2025)
+  fit         Decimal? @db.Decimal(8, 5)  // FIT informado (modo MANUAL; padrão 1)
   transportDmts TransportDmt[]
+  // FIT pelo Volume 05, 2ª ed. (decisões #71–#74)
+  fitMode         FitMode @default(CALCULATED)
+  stopGo          Boolean @default(false)       // há operação PARE e SIGA (ex.: SICRO 5213850)
+  urbanSpeed      Decimal? @db.Decimal(6, 2)    // km/h em via urbana (padrão 30; ajuste com justificativa)
+  trafficSource   String?                       // fonte do VMD (estudo de tráfego, PNCT, PNCV) e justificativas
+  trafficSegments TrafficSegment[]
 
   // Totais desnormalizados (recalculados a cada alteração)
   directCost Decimal @default(0) @db.Decimal(15, 2)
@@ -636,6 +643,12 @@ model TransportDmt {
   dmtNatural   Decimal? @db.Decimal(10, 3)
   dmtPrimary   Decimal? @db.Decimal(10, 3)
   dmtPaved     Decimal? @db.Decimal(10, 3)
+  /// Pavimentada em via urbana (DMTu)
+  dmtUrban     Decimal? @db.Decimal(10, 3)
+  /// FIT: o transporte passa pela extensão da obra (atraso do PARE e SIGA)
+  passesWorksite Boolean @default(true)
+  /// FIT: aplicar a este material (o orçamentista pode limitar aos mais significativos)
+  applyFit     Boolean  @default(true)
   /// De onde vem (pedreira, jazida, fornecedor…)
   note         String?
 
@@ -663,4 +676,24 @@ model LaborCharge {
 
   @@unique([priceTableId, code])
   @@index([priceTableId])
+}
+
+enum FitMode {
+  /// Calculado pelo Volume 05 (2025), por material
+  CALCULATED
+  /// Valor único informado pelo usuário
+  MANUAL
+}
+
+/// Segmento da obra com o VMD por faixa (Volume 05, Eq. 1) — decisão #73
+model TrafficSegment {
+  id          String  @id @default(cuid())
+  budgetId    String
+  budget      Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  position    Int
+  description String?
+  lengthKm    Decimal @db.Decimal(10, 3)
+  vmdPerLane  Decimal @db.Decimal(10, 1)
+
+  @@index([budgetId])
 }

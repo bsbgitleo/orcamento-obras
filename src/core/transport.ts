@@ -85,16 +85,19 @@ export function materialWeights(services: TransportService[], catalog: Catalog):
 
 /**
  * Momentos por composição de transporte. `dmtFor(code)` devolve a DMT do
- * material (padrão do orçamento ou ajuste). O FIT multiplica a DMT pavimentada.
+ * material (padrão do orçamento ou ajuste; P = pavimentada total, rural +
+ * urbana). O FIT multiplica a DMT pavimentada: um valor para todos ou, pelo
+ * Volume 05 de 2025, um por material (`fit(code)`).
  */
-export function transportMoments(materials: MaterialWeight[], dmtFor: (code: string) => Dmt, fit: Decimal.Value = 1): TransportLine[] {
+export function transportMoments(materials: MaterialWeight[], dmtFor: (code: string) => Dmt, fit: Decimal.Value | ((code: string) => Decimal.Value) = 1): TransportLine[] {
   const lines = new Map<string, TransportLine>();
   for (const m of materials) {
     const dmt = dmtFor(m.code);
+    const f = typeof fit === "function" ? fit(m.code) : fit;
     for (const road of ROADS) {
       const code = m.transportCodes[road];
       let km = new Decimal(dmt[road] || 0);
-      if (road === "P") km = km.times(fit);
+      if (road === "P") km = km.times(f);
       if (!code || km.lte(0) || m.weight.lte(0)) continue;
       const moment = r4(m.weight.times(km));
       const l = lines.get(code) ?? { code, road, moment: new Decimal(0) };

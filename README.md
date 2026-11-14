@@ -94,9 +94,13 @@ Método do DNIT reproduzido (6.619 composições do DF 07/2026 iguais ao publica
 execução = (equipamentos + mão de obra) ÷ produção; **FIC = FIC × (custo improdutivo dos equipamentos + mão de obra) ÷
 produção**; acréscimos percentuais dentro dos grupos; auxiliares e tempo fixo pelo custo final; total com 2 casas.
 **Momento de transporte** (grupo F): na aba **Transporte** do orçamento SICRO, informe a DMT padrão por tipo de via
-(e, se quiser, a de materiais específicos e o FIT). O app calcula peso × DMT de cada material (inclusive das
+(a pavimentada separada em rodovia rural e via urbana; e, se quiser, a de materiais específicos). O app calcula peso × DMT de cada material (inclusive das
 atividades auxiliares) e mantém uma etapa "Transportes" com um item em t·km por composição de transporte, como nos
 orçamentos do DNIT. Sem DMT, os serviços aparecem "sem transporte".
+**FIT** pelo Manual de Custos do DNIT, Volume 05 (2ª ed., 2025), por material: FIT = 1 + (A1 + A2) ÷ (DMT pavimentada × 60),
+com A1 = 70 + 0,0035 × VMD por faixa (PARE e SIGA, só para o material que passa pela obra) e A2 = 60 s por km em via urbana;
+sem FIT acima de 100 km; 4 casas. O VMD vem dos segmentos da obra (média ponderada pela extensão). Também é possível
+informar um FIT único.
 **Encargos sociais**: no SICRO eles são por profissional e já estão no custo horário da mão de obra. O app guarda o
 "Analítico de Encargos Sociais" de cada regime (itens A1…D2, grupos A–D e total por código P9xxx), mostra em
 Tabelas importadas → **por profissional** e lista os profissionais do orçamento na aba BDI e encargos da exportação.
