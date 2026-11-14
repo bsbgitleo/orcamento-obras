@@ -115,6 +115,15 @@ serviço: código da base ou de composição própria → vinculado; sem código
 preço (com BDI, o app desconta o BDI do orçamento); sem preço → "sem custo". Reconhece a exportação do próprio app e o
 modelo de homogeneização das proponentes.
 
+## Comparação das propostas recebidas
+
+Na aba **Propostas** do orçamento, envie a proposta de cada proponente em .xlsx (por exemplo, a planilha para
+proponentes devolvida) ou em PDF com texto. O app lê os itens, casa com a planilha pela numeração (ou pela descrição) e
+mostra para conferir antes de gravar. O resumo classifica pelo total equalizado (quantidade do orçamento × preço
+ofertado; item sem preço com o maior preço das demais; acrescentados à parte) e aponta preços 30 % fora da mediana ou da
+referência, total abaixo de 75 % do orçado, prazo e validade fora do exigido e total declarado diferente da soma. O mapa
+comparativo sai também em Excel.
+
 ## Exportações
 
 Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, BDI e encargos, transporte no SICRO, cronograma,

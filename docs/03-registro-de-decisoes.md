@@ -79,10 +79,14 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 73 | 2026-11-14 | **VMD por faixa por segmentos da obra** (extensão em km + VMD por faixa); o app calcula a média ponderada pela extensão (Equação 1). Com um só segmento, é o próprio valor | Aprovado pelo Leo · implementado |
 | 74 | 2026-11-14 | **FIT com 4 casas, meio para cima** — o Volume 05 não fixa o arredondamento; mesmo critério dos coeficientes do SICRO | Aprovado pelo Leo · implementado |
 | 75 | 2026-11-14 | **Memória do transporte na exportação Excel**: aba "Transporte" (só nas bases SICRO com materiais transportados) com as DMT padrão (leito natural, revestimento primário, pavimentada rural e urbana), o método do FIT (Volume 05 ou valor informado), PARE e SIGA, velocidade urbana, VMD ponderado, fonte e segmentos, a fórmula, cada material (origem, peso, DMT por via, passa pela obra, A1, A2, FIT, pavimentada com FIT) e os momentos por composição de transporte com custos e total. Na Analítica, o transporte do grupo F passa a indicar "transporte na etapa Transportes" quando há DMT | Aprovado pelo Leo · implementado |
+| 76 | 2026-11-14 | **Comparação das propostas recebidas — entrada**: aba "Propostas" do orçamento. A proposta entra em **.xlsx** (a planilha para proponentes devolvida ou outra com cabeçalho reconhecível; preço unitário com BDI) ou **PDF com texto** (lido pelas posições das palavras com o pdf.js: colunas pelo cabeçalho da tabela, item ancorado na numeração, cabeçalho Empresa/CNPJ/RT/Validade/Prazo e total geral). PDF escaneado não é lido. O app casa cada linha com a planilha pela numeração (1.1 = 01.01) e, sem ela, pela descrição; antes de gravar, o usuário confere e pode trocar o item do orçamento de cada linha ou marcá-la como acrescentada. Testado com a proposta 055-26 da AGF (57 itens, prazo, validade e total) | Aprovado pelo Leo · implementado |
+| 77 | 2026-11-14 | **Equalização: item sem preço recebe o maior preço unitário das demais proponentes** (ou o de referência, se nenhuma cotou); o total "como cotado" continua ao lado | Aprovado pelo Leo · implementado |
+| 78 | 2026-11-14 | **Itens acrescentados pela proponente ficam à parte** (lista própria, fora do equalizado; item repetido também); **quantidade alterada é sinalizada** e o equalizado usa a quantidade do orçamento × preço unitário ofertado, ARRED(…; 2) | Aprovado pelo Leo · implementado |
+| 79 | 2026-11-14 | **Alertas**: preço unitário 30 % acima ou abaixo da mediana das propostas ou da referência; total equalizado abaixo de 75 % do orçado (possível inexequível — Lei 14.133, art. 59, § 4º); prazo acima do máximo e validade abaixo da mínima exigidos (campos do orçamento); total declarado diferente da soma dos itens. Classificação pelo total equalizado. Mapa comparativo também em Excel (resumo, mapa por item com notas, acrescentados) | Aprovado pelo Leo · implementado |
 
 ## Estado do código (2026-11-14)
-- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `aae0135` no GitHub (público). A aba Transporte da exportação (#75) está na pasta, **sem commit**.
-- **128 testes**; `tsc` e `eslint` sem erros.
+- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `6d9c062` no GitHub (público). A comparação das propostas recebidas (#76–#79) está na pasta, **sem commit**.
+- **135 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
@@ -100,5 +104,5 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 - Importação em processo separado (worker) se a hospedagem escolhida exigir (#47).
 - Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
 - Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.
-- Planilha para proponentes: abas de memória de cálculo (parâmetros com fórmula) e especificação de materiais, como nos modelos arquivados; comparação das propostas recebidas.
+- Planilha para proponentes: abas de memória de cálculo (parâmetros com fórmula) e especificação de materiais, como nos modelos arquivados. (A comparação das propostas recebidas foi feita nas #76–#79.)
 - SICRO: cálculo do FIT pelo método de 2025 (#68); encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).

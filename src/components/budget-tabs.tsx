@@ -12,6 +12,7 @@ export function BudgetTabs({ projectId, sicro = false }: { projectId: string; si
     { href: `${base}/cronograma`, label: "Cronograma" },
     ...(sicro ? [{ href: `${base}/transporte`, label: "Transporte" }] : []),
     { href: `${base}/especificacoes`, label: "Especificações" },
+    { href: `${base}/propostas`, label: "Propostas" },
     { href: `${base}/exportar`, label: "Exportar" },
   ];
   return (

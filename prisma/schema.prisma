@@ -405,6 +405,10 @@ model Budget {
   // Planilha para proponentes (decisão #60)
   bidderInstructions String?
   bidderPremises     String?
+  // Comparação das propostas recebidas (decisões #76–#79)
+  bidderMaxDays         Int? // prazo máximo de execução exigido (dias)
+  bidderMinValidityDays Int? // validade mínima exigida (dias)
+  proposals             Proposal[]
 
   // SICRO — momento de transporte (decisões #66–#68): DMT padrão por via (km) e FIT
   dmtNatural  Decimal? @db.Decimal(10, 3) // leito natural
@@ -472,6 +476,8 @@ model WbsNode {
   requiresBrand       Boolean @default(false)
 
   schedule ScheduleEntry[]
+
+  proposalItems       ProposalItem[]
 
   @@unique([budgetId, parentId, position])
   @@index([budgetId])
@@ -696,4 +702,45 @@ model TrafficSegment {
   vmdPerLane  Decimal @db.Decimal(10, 1)
 
   @@index([budgetId])
+}
+
+/// Proposta recebida de uma proponente (decisões #76–#79)
+model Proposal {
+  id            String   @id @default(cuid())
+  budgetId      String
+  budget        Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  bidderName    String
+  document      String?
+  technicalLead String?
+  executionDays Int?
+  validityDays  Int?
+  /// Total geral declarado pela proponente
+  declaredTotal Decimal? @db.Decimal(15, 2)
+  fileName      String
+  /// XLSX | PDF | MANUAL
+  fileKind      String
+  notes         String?
+  createdAt     DateTime @default(now())
+  items         ProposalItem[]
+
+  @@index([budgetId])
+}
+
+/// Linha da proposta; nodeId = item do orçamento casado (null = acrescentado pela proponente)
+model ProposalItem {
+  id          String   @id @default(cuid())
+  proposalId  String
+  proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  position    Int
+  nodeId      String?
+  node        WbsNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  item        String?
+  description String
+  unit        String?
+  quantity    Decimal? @db.Decimal(15, 4)
+  unitPrice   Decimal? @db.Decimal(15, 4)
+  totalPrice  Decimal? @db.Decimal(15, 2)
+
+  @@index([proposalId])
+  @@index([nodeId])
 }
