@@ -42,6 +42,26 @@ export interface SicroFiles {
   labor: Partial<Record<SicroRegime, string>>;
   equipment: Partial<Record<SicroRegime, string>>;
   priceOrigin?: string;
+  /** Relatório Analítico de Encargos Sociais e Trabalhistas, por regime (decisão #70) */
+  charges?: Partial<Record<SicroRegime, string>>;
+}
+
+export interface SicroLaborCharge {
+  code: string; // P9801
+  description: string;
+  unit: string;
+  /** Item → percentual com 4 casas ("A1" → "20") */
+  items: Record<string, string>;
+  groups: { A: string; B: string; C: string; D: string };
+  /** Total publicado (2 casas) */
+  total: string;
+}
+
+export interface SicroChargeLegend {
+  /** "A" → "Encargos Sociais" */
+  groups: Record<string, string>;
+  /** "A1" → "INSS" */
+  items: Record<string, string>;
 }
 
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];

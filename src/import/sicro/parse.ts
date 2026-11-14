@@ -21,7 +21,7 @@ import Decimal from "decimal.js";
 import type ExcelJS from "exceljs";
 import { cellText } from "../sinapi/cell";
 import { rowValues, streamSheets, readSheetNames } from "../sinapi/workbook";
-import { compositionCode7, parseSicroMonth, type SicroComposition, type SicroInput, type SicroItem } from "./types";
+import { compositionCode7, parseSicroMonth, type SicroChargeLegend, type SicroComposition, type SicroInput, type SicroItem, type SicroLaborCharge } from "./types";
 
 /** Numeric cell → decimal string rounded to `places` (DNIT files carry float noise, e.g. 26.747699999999998). */
 export function num(v: ExcelJS.CellValue, places: number): string | null {
@@ -163,4 +163,46 @@ export async function parseAnalytic(path: string, onProgress?: (m: string) => vo
     if (item) c.items.push(item);
   });
   return { referenceMonth, compositions };
+}
+
+/**
+ * Relatório Analítico de Encargos Sociais e Trabalhistas (aba "Encargos"):
+ *   linha 1: Código | Descrição | Unid. | Encargos Sociais (%) | … | Total (%)
+ *   linha 2: códigos dos itens nas colunas D… (A1…A9, B1…B10, C1…C5, D1, D2)
+ *   linhas P9xxx: percentuais por item e total (AD); no fim, a legenda
+ *   ("Grupo A - Encargos Sociais (%)" na coluna B; código e nome nas colunas C e D).
+ */
+export async function parseLaborCharges(path: string): Promise<{ rows: SicroLaborCharge[]; legend: SicroChargeLegend }> {
+  const rows: SicroLaborCharge[] = [];
+  const legend: SicroChargeLegend = { groups: {}, items: {} };
+  let itemCols: { col: number; code: string }[] = [];
+  let totalCol = -1;
+  await firstSheet(path, (v) => {
+    const a = cellText(v[1]);
+    if (!itemCols.length) {
+      const found = v.map((c, i) => ({ col: i, code: cellText(c) })).filter((x) => /^[A-D]\d{1,2}$/.test(x.code));
+      if (found.length >= 5) { itemCols = found; totalCol = Math.max(...found.map((x) => x.col)) + 1; }
+      return;
+    }
+    if (/^P\d{4}$/.test(a)) {
+      const items: Record<string, string> = {};
+      const groups = { A: new Decimal(0), B: new Decimal(0), C: new Decimal(0), D: new Decimal(0) };
+      for (const { col, code } of itemCols) {
+        const val = num(v[col], 4) ?? "0";
+        items[code] = val;
+        groups[code[0] as "A"] = groups[code[0] as "A"].plus(val);
+      }
+      rows.push({
+        code: a, description: cellText(v[2]), unit: cellText(v[3]), items,
+        groups: { A: groups.A.toFixed(4), B: groups.B.toFixed(4), C: groups.C.toFixed(4), D: groups.D.toFixed(4) },
+        total: num(v[totalCol], 2) ?? groups.A.plus(groups.B).plus(groups.C).plus(groups.D).toFixed(2),
+      });
+      return;
+    }
+    const g = /^Grupo\s+([A-D])\s*-\s*(.+?)\s*(\(%\))?$/i.exec(cellText(v[2]));
+    if (g) legend.groups[g[1].toUpperCase()] = g[2];
+    const code = cellText(v[3]);
+    if (/^[A-D]\d{1,2}$/.test(code) && cellText(v[4])) legend.items[code] = cellText(v[4]);
+  });
+  return { rows, legend };
 }

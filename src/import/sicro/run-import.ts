@@ -7,7 +7,8 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { cacheCompositionCosts } from "@/lib/pricing/cache-composition-costs";
 import { BaseInUseError } from "../sinapi/load";
 import type { TableOutcome } from "../sinapi/run-import";
-import { parseAnalytic, parseEquipment, parseLabor, parseMaterials, parsePriceOrigin, parseSyntheticCompositions } from "./parse";
+import { parseAnalytic, parseEquipment, parseLabor, parseLaborCharges, parseMaterials, parsePriceOrigin, parseSyntheticCompositions } from "./parse";
+import type { Prisma } from "@/generated/prisma/client";
 import { loadSicroTable } from "./load";
 import type { SicroFiles, SicroInput, SicroRegime } from "./types";
 
@@ -53,6 +54,7 @@ export async function runSicroImport(
         uf, referenceMonth: analytic.referenceMonth, regime, inputs, compositions: analytic.compositions,
         sourceFile: path.basename(files.analytic), withPublishedCost: regime === "NAO_DESONERADO",
       }, (m) => log(`   ${m}`));
+      await loadCharges(prisma, loaded.priceTableId, files.charges?.[regime], log);
       log(`   Calculando o custo das ${loaded.compositions} composições…`);
       const cached = await cacheCompositionCosts(prisma, loaded.priceTableId);
       Object.assign(outcome, { status: "IMPORTED", inputs: loaded.inputs, compositions: loaded.compositions, withoutCost: cached.incomplete,
@@ -64,7 +66,12 @@ export async function runSicroImport(
           ? (cached.mismatches.length ? `ATENÇÃO: ${cached.mismatches.length} custos diferentes do publicado (ex.: ${cached.mismatches.slice(0, 3).map((m) => `${m.code} ${m.computed}≠${m.published}`).join(", ")})` : "todos os custos iguais ao publicado")
           : "o DNIT não publica o custo das composições com desoneração; calculado pelo mesmo método"));
     } catch (e) {
-      if (e instanceof BaseInUseError) outcome.status = "BLOCKED";
+      if (e instanceof BaseInUseError) {
+        outcome.status = "BLOCKED";
+        // Encargos por profissional não mudam custo nenhum: completa a base existente se faltarem
+        const existing = await prisma.priceTable.findFirst({ where: { companyId: null, origin: "SICRO", uf, referenceMonth: analytic.referenceMonth, regime }, select: { id: true, _count: { select: { laborCharges: true } } } });
+        if (existing && existing._count.laborCharges === 0 && files.charges?.[regime]) await loadCharges(prisma, existing.id, files.charges[regime], log);
+      }
       outcome.message = e instanceof Error ? e.message : String(e);
       log(`   ${outcome.status === "BLOCKED" ? "BLOQUEADA" : "ERRO"}: ${outcome.message}`);
     }
@@ -72,4 +79,17 @@ export async function runSicroImport(
     tables.push(outcome);
   }
   return { tables };
+}
+
+/** Encargos sociais e trabalhistas por profissional (decisões #40, #70). */
+async function loadCharges(prisma: PrismaClient, priceTableId: string, file: string | undefined, log: (m: string) => void): Promise<void> {
+  if (!file) { log("   Sem o relatório analítico de encargos: os encargos por profissional ficam em branco."); return; }
+  const ch = await parseLaborCharges(file);
+  await prisma.laborCharge.deleteMany({ where: { priceTableId } });
+  await prisma.laborCharge.createMany({ data: ch.rows.map((c) => ({
+    priceTableId, code: c.code, description: c.description, unit: c.unit, items: c.items,
+    groupA: c.groups.A, groupB: c.groups.B, groupC: c.groups.C, groupD: c.groups.D, total: c.total,
+  })) });
+  await prisma.priceTable.update({ where: { id: priceTableId }, data: { chargeLegend: ch.legend as unknown as Prisma.InputJsonValue } });
+  log(`   Encargos de ${ch.rows.length} profissionais (ex.: ${ch.rows[0]?.code} ${ch.rows[0]?.description} ${ch.rows[0]?.total.replace(".", ",")} %)`);
 }

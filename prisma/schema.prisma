@@ -237,6 +237,9 @@ model PriceTable {
   /// Encargos sociais sobre a mão de obra publicados com a tabela (fração, ex.: 1.1008 = 110,08 %)
   socialChargesHourly  Decimal?      @db.Decimal(7, 4)
   socialChargesMonthly Decimal?      @db.Decimal(7, 4)
+  /// SICRO: nomes dos itens de encargos (A1 → "INSS"…) e dos grupos, do relatório do DNIT
+  chargeLegend         Json?
+  laborCharges         LaborCharge[]
   inputs               Input[]
   compositions         Composition[]
   budgets              Budget[]
@@ -386,8 +389,10 @@ model Budget {
   supplyBdiId String?
   supplyBdi   BdiProfile? @relation("BudgetSupplyBdi", fields: [supplyBdiId], references: [id])
 
-  socialChargesId String
-  socialCharges   SocialChargesProfile @relation(fields: [socialChargesId], references: [id])
+  /// Tabela de encargos da empresa (SINAPI). Nas bases SICRO fica vazia: os
+  /// encargos vêm por profissional do relatório do DNIT (decisões #40, #70)
+  socialChargesId String?
+  socialCharges   SocialChargesProfile? @relation(fields: [socialChargesId], references: [id], onDelete: Restrict)
 
   /// Duração do cronograma físico-financeiro (meses)
   scheduleMonths Int @default(6)
@@ -636,4 +641,26 @@ model TransportDmt {
 
   @@unique([budgetId, materialCode])
   @@index([budgetId])
+}
+
+/// SICRO: encargos sociais e trabalhistas de cada profissional (P9xxx), do
+/// Relatório Analítico de Encargos do DNIT, um por base/regime (decisões #40, #70)
+model LaborCharge {
+  id           String     @id @default(cuid())
+  priceTableId String
+  priceTable   PriceTable @relation(fields: [priceTableId], references: [id], onDelete: Cascade)
+  code         String
+  description  String
+  unit         String
+  /// Percentual de cada item { "A1": "20", "B1": "18.579", … }
+  items        Json
+  groupA       Decimal    @db.Decimal(9, 4)
+  groupB       Decimal    @db.Decimal(9, 4)
+  groupC       Decimal    @db.Decimal(9, 4)
+  groupD       Decimal    @db.Decimal(9, 4)
+  /// Total publicado (2 casas)
+  total        Decimal    @db.Decimal(9, 2)
+
+  @@unique([priceTableId, code])
+  @@index([priceTableId])
 }

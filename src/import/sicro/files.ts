@@ -19,17 +19,19 @@ const RE = {
   labor: new RegExp(`sint${A}tico de m${A}o de obra`),
   equipment: new RegExp(`sint${A}tico de equipamentos`),
   priceOrigin: new RegExp(`origem de pre${A}os`),
+  charges: new RegExp(`anal${A}tico de encargos`),
   desonerado: /com desonera/,
 };
 
 export interface SicroFileSet extends Partial<SicroFiles> { uf?: string; ignored: string[] }
+// (charges: relatório analítico de encargos sociais e trabalhistas, por regime)
 
 /**
  * `names` (optional) are the original file names, when the files were saved
  * under other names (upload folder); otherwise the path's base name is used.
  */
 export function classifySicroFiles(paths: string[], names?: string[]): SicroFileSet {
-  const out: SicroFileSet = { labor: {}, equipment: {}, ignored: [] };
+  const out: SicroFileSet = { labor: {}, equipment: {}, charges: {}, ignored: [] };
   paths.forEach((p, i) => {
     const name = norm(names?.[i] ?? path.basename(p));
     if (!name.endsWith(".xlsx")) { out.ignored.push(p); return; }
@@ -42,7 +44,8 @@ export function classifySicroFiles(paths: string[], names?: string[]): SicroFile
     else if (RE.labor.test(name)) out.labor![regime] = p;
     else if (RE.equipment.test(name)) out.equipment![regime] = p;
     else if (RE.priceOrigin.test(name)) out.priceOrigin = p;
-    else out.ignored.push(p); // analíticos de mão de obra e de encargos: não usados no cálculo
+    else if (RE.charges.test(name)) out.charges![regime] = p;
+    else out.ignored.push(p); // analíticos de mão de obra: não usados (o sintético já traz o custo)
   });
   return out;
 }

@@ -65,7 +65,7 @@ export function NewBudgetWizard({ options }: { options: WizardOptions }) {
 
   const selectedTable = options.tables.find((t) => t.id === tableId);
   const selectedCharges = options.charges.find((c) => c.id === chargesId);
-  const regimeMismatch = selectedTable && selectedCharges && selectedTable.regime !== selectedCharges.regime;
+  const regimeMismatch = selectedTable && selectedTable.origin !== "SICRO" && selectedCharges && selectedTable.regime !== selectedCharges.regime;
 
   const next = () => {
     // Native validation only for the fields of the current step
@@ -161,8 +161,8 @@ export function NewBudgetWizard({ options }: { options: WizardOptions }) {
         <p>Custo de cada item = <code>TRUNC(coeficiente × preço, 2)</code>; custo da composição = soma dos itens; custo do serviço = <code>TRUNC(quantidade × custo unitário, 2)</code>. É a regra do SINAPI (conferida centavo a centavo). Nas bases do SICRO, a composição segue o método do DNIT (itens com 4 casas e custo final arredondado meio para cima, também conferido centavo a centavo); o custo do serviço e o preço com BDI seguem a mesma regra acima.</p>
 
         <h2>Encargos sociais</h2>
-        <Field label="Tabela de encargos sociais" name="socialChargesId" error={err(state, "socialChargesId")} hint="Deve ter o mesmo regime (desonerado / não desonerado) da base de preços">
-          <select id="socialChargesId" name="socialChargesId" required value={chargesId} onChange={(e) => onChargesChange(e.target.value)}>
+        <Field label="Tabela de encargos sociais (bases SINAPI)" name="socialChargesId" error={err(state, "socialChargesId")} hint="Mesmo regime (desonerado / não desonerado) da base de preços. Nas bases SICRO não é usada: os encargos vêm por profissional do relatório do DNIT.">
+          <select id="socialChargesId" name="socialChargesId" value={chargesId} onChange={(e) => onChargesChange(e.target.value)}>
             <option value="">— escolha —</option>
             {options.charges.map((c) => (
               <option key={c.id} value={c.id}>{c.name}{c.name.includes(REGIME_LABEL[c.regime]) ? "" : ` — ${REGIME_LABEL[c.regime]}`} (horista {pct(c.hourlyPct)}, mensalista {pct(c.monthlyPct)})</option>
@@ -217,6 +217,7 @@ export function NewBudgetWizard({ options }: { options: WizardOptions }) {
           </table>
         )}
         {err(state, "priceTableId") && <p className="error" style={{ color: "var(--danger)" }}>{err(state, "priceTableId")}</p>}
+        {selectedTable?.origin === "SICRO" && <p className="muted" style={{ fontSize: 13 }}>Base SICRO: os encargos sociais vêm por profissional do relatório do DNIT{selectedCharges ? "; a tabela de encargos escolhida no passo 2 não é usada" : ""}.</p>}
         <p className="muted" style={{ marginTop: 12 }}>Todo preço do orçamento ficará rastreado a esta origem, UF, mês de referência e regime.</p>
             <label className="checkbox" style={{ marginTop: 10 }}>
               <input type="checkbox" name="importSheet" /> Depois de criar, importar as etapas e os serviços de uma planilha .xlsx

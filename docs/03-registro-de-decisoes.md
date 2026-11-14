@@ -73,16 +73,17 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 67 | 2026-11-14 | **Transporte como itens em t·km**: os momentos são somados por composição de transporte (ex.: 5914479) e lançados numa etapa "Transportes" no fim da EAP, **gerada e mantida pelo app** a cada recálculo (quantidade = t·km; custo = composição de transporte da base). Linhas marcadas "automático" (`WbsNode.autoKind`), sem edição manual. Sem DMT informada, nada é gerado e os serviços seguem "sem transporte" | **Aprovado pelo Leo** · implementado |
 | 68 | 2026-11-14 | **FIT** como campo opcional do orçamento (padrão 1,00), informado pelo usuário e aplicado só à DMT pavimentada. A fórmula do FIT de 2025 (VMD, trechos urbanos) só foi encontrada em site de terceiro; calcular no app fica para depois de conferir o Manual do DNIT, Vol. 05 | **Aprovado pelo Leo** · implementado |
 | 69 | 2026-11-14 | **Importação do SICRO pela tela** (completa a #34 para o SICRO): na mesma tela "Importar base oficial", o administrador envia os relatórios .xlsx do DNIT soltos ou num ZIP (PDFs ignorados). Reconhecimento pelo nome, tolerante a acentos perdidos ou trocados (nomes de ZIP decodificados em UTF-8 ou Windows-1252); a UF vem do nome ("DF 07-2026 …") ou, sem ela, da única UF marcada; regimes sem e com desoneração. Na base com desoneração o resultado mostra "sem custo publicado", porque o DNIT não publica esse custo | Aprovado (proposto pelo Claude) · implementado |
+| 70 | 2026-11-14 | **Encargos sociais por profissional no SICRO** (implementa a #40): o importador lê o "Analítico de Encargos Sociais" de cada regime e grava, por código P9xxx, os percentuais de cada item (A1…D2), a soma dos grupos A–D e o total publicado, com a legenda dos itens (145 profissionais por regime no DF 07/2026; ex.: P9824 sem desoneração 37,80 + 40,91 + 15,97 + 15,84 = 110,52 %). Os encargos já estão no custo horário publicado da mão de obra, então **não entram de novo no cálculo**: servem para consulta e justificativa. No orçamento SICRO a tabela de encargos da empresa não se aplica (campo vazio; a migração limpa os orçamentos SICRO existentes); o orçamento mostra o link para a página de encargos da base, e a exportação Excel lista, na aba BDI e encargos, os profissionais usados no orçamento com os grupos e o total. Base já importada e em uso sem encargos: os encargos são carregados sem reimportar a tabela | Aprovado (pedido do Leo) · implementado |
 
 ## Estado do código (2026-11-14)
-- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `abe07b3` no GitHub (público). A importação do SICRO pela tela (#69) está na pasta, **sem commit**.
-- **119 testes**; `tsc` e `eslint` sem erros.
+- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `202c7da` no GitHub (público). Os encargos por profissional do SICRO (#70) estão na pasta, **sem commit**.
+- **120 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
 2. ~~Upload SINAPI pela interface + UF escolhida + Manutenções (#32–#34)~~ ✔ (#45–#49)
 3. ~~Composições próprias + busca unificada (#36)~~ ✔ (#51–#54)
-4. ~~SICRO: motor e importador~~ ✔ (#55–#57). **Falta: DMT/transporte (#58), importação SICRO pela tela, encargos por profissional (#40).**
+4. ~~SICRO: motor e importador~~ ✔ (#55–#57). Transporte (#66–#68), importação pela tela (#69) e encargos por profissional (#70) feitos. **Falta: FIT pelo método de 2025 (Manual do DNIT, Vol. 05).**
 5. ~~Exportações (Excel/PDF) e proposta comercial~~ ✔ (#59–#61).
 
 ## Pendências

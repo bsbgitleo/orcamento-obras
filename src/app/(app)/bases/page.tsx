@@ -15,7 +15,7 @@ export default async function PriceTablesPage() {
     prisma.priceTable.findMany({
       where: { OR: [{ companyId: null }, { companyId: company.id }] },
       orderBy: [{ referenceMonth: "desc" }, { uf: "asc" }, { regime: "asc" }],
-      include: { _count: { select: { inputs: true, compositions: true } } },
+      include: { _count: { select: { inputs: true, compositions: true, laborCharges: true } } },
     }),
     prisma.sourceMaintenance.groupBy({ by: ["fileMonth"], where: { origin: "SINAPI" }, _count: true, orderBy: { fileMonth: "desc" }, take: 1 }),
     isAdmin
@@ -47,8 +47,14 @@ export default async function PriceTablesPage() {
                 <td>{t.origin}</td><td>{t.uf}</td><td>{refMonth(t.referenceMonth)}</td><td>{REGIME_LABEL[t.regime]}</td>
                 <td className="num">{t._count.inputs.toLocaleString("pt-BR")}</td>
                 <td className="num">{t._count.compositions.toLocaleString("pt-BR")}</td>
-                <td className="num">{t.socialChargesHourly === null ? "—" : pct(Number(t.socialChargesHourly) * 100)}</td>
-                <td className="num">{t.socialChargesMonthly === null ? "—" : pct(Number(t.socialChargesMonthly) * 100)}</td>
+                {t.origin === "SICRO" ? (
+                  <td className="num" colSpan={2}>{t._count.laborCharges ? <Link href={`/bases/${t.id}/encargos`}>por profissional ({t._count.laborCharges})</Link> : "—"}</td>
+                ) : (
+                  <>
+                    <td className="num">{t.socialChargesHourly === null ? "—" : pct(Number(t.socialChargesHourly) * 100)}</td>
+                    <td className="num">{t.socialChargesMonthly === null ? "—" : pct(Number(t.socialChargesMonthly) * 100)}</td>
+                  </>
+                )}
                 <td className="num">{budgetsByTable.get(t.id) ?? 0}</td>
                 <td>{dateTimeBR(t.importedAt)}</td>
               </tr>

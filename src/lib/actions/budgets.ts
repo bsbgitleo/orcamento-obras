@@ -20,15 +20,18 @@ export async function createBudget(_prev: ActionState, fd: FormData): Promise<Ac
   const [table, bdi, charges, client] = await Promise.all([
     prisma.priceTable.findFirst({ where: { id: d.priceTableId, OR: [{ companyId: null }, { companyId }] } }),
     prisma.bdiProfile.findFirst({ where: { id: d.bdiId, companyId } }),
-    prisma.socialChargesProfile.findFirst({ where: { id: d.socialChargesId, companyId } }),
+    d.socialChargesId ? prisma.socialChargesProfile.findFirst({ where: { id: d.socialChargesId, companyId } }) : Promise.resolve(null),
     d.clientId ? prisma.client.findFirst({ where: { id: d.clientId, companyId } }) : Promise.resolve(null),
   ]);
   const fieldErrors: Record<string, string> = {};
   if (!table) fieldErrors.priceTableId = "Base de preços não encontrada";
   if (!bdi) fieldErrors.bdiId = "BDI não encontrado";
-  if (!charges) fieldErrors.socialChargesId = "Tabela de encargos não encontrada";
+  // SICRO: encargos por profissional, do relatório do DNIT — a tabela da empresa não se aplica (decisão #70)
+  const sicro = table?.origin === "SICRO";
+  if (!sicro && !d.socialChargesId) fieldErrors.socialChargesId = "Escolha a tabela de encargos sociais (bases SINAPI)";
+  else if (!sicro && !charges) fieldErrors.socialChargesId = "Tabela de encargos não encontrada";
   if (d.clientId && !client) fieldErrors.clientId = "Cliente não encontrado";
-  if (table && charges && table.regime !== charges.regime) {
+  if (!sicro && table && charges && table.regime !== charges.regime) {
     fieldErrors.socialChargesId = "O regime da tabela de encargos difere do regime da base de preços";
   }
   if (Object.keys(fieldErrors).length) return { status: "error", message: "Corrija os campos indicados.", fieldErrors, values: r.values };
@@ -54,7 +57,7 @@ export async function createBudget(_prev: ActionState, fd: FormData): Promise<Ac
               priceTableId: d.priceTableId,
               bdiId: d.bdiId,
               supplyBdiId: d.useSupplyBdi ? d.supplyBdiId : null,
-              socialChargesId: d.socialChargesId,
+              socialChargesId: sicro ? null : d.socialChargesId,
             },
           },
         },

@@ -22,7 +22,7 @@ const data: BudgetExport = {
     id: "b", revision: 1, status: "DRAFT", updatedAt: new Date(),
     base: { origin: "SINAPI", uf: "DF", referenceMonth: "2026-10", regime: "NAO_DESONERADO" },
     bdi: { name: "BDI", percent: "23.86", workType: "EDIFICACOES", centralAdministration: "4", insurance: "0.8", risk: "1.27", guarantee: "0", financialExpenses: "1.23", profit: "7.4", pis: "0.65", cofins: "3", iss: "2.5", cprb: "0" },
-    supplyBdi: null, socialCharges: { name: "Encargos", hourlyPct: "110.08", monthlyPct: "69.94" },
+    supplyBdi: null, socialCharges: { name: "Encargos", hourlyPct: "110.08", monthlyPct: "69.94" }, laborCharges: [], chargeLegend: null,
     directCost: "1918.70", salePrice: "2376.40",
     proposalValidityDays: 60, executionTerm: null, paymentTerms: null, proposalNotes: null,
     bidderInstructions: "1. OBJETO\nReforma do bloco.", bidderPremises: null, scheduleMonths: 2,

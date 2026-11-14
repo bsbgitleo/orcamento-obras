@@ -25,7 +25,8 @@ describe("SICRO files", () => {
     expect(f.labor?.NAO_DESONERADO).toMatch(/Mão de Obra\.xlsx$/);
     expect(f.equipment?.DESONERADO).toMatch(/com desoneração/);
     expect(f.priceOrigin).toMatch(/Origem/);
-    expect(f.ignored).toHaveLength(2); // o PDF e os encargos
+    expect(f.ignored).toHaveLength(1); // o PDF
+    expect(f.charges?.NAO_DESONERADO).toMatch(/Encargos Sociais e Trabalhistas\.xlsx$/);
   });
 
   it("tolera acentos perdidos ou trocados (nomes dentro de ZIP, '_' no lugar de espaço)", () => {

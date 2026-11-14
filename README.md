@@ -97,6 +97,10 @@ produção**; acréscimos percentuais dentro dos grupos; auxiliares e tempo fixo
 (e, se quiser, a de materiais específicos e o FIT). O app calcula peso × DMT de cada material (inclusive das
 atividades auxiliares) e mantém uma etapa "Transportes" com um item em t·km por composição de transporte, como nos
 orçamentos do DNIT. Sem DMT, os serviços aparecem "sem transporte".
+**Encargos sociais**: no SICRO eles são por profissional e já estão no custo horário da mão de obra. O app guarda o
+"Analítico de Encargos Sociais" de cada regime (itens A1…D2, grupos A–D e total por código P9xxx), mostra em
+Tabelas importadas → **por profissional** e lista os profissionais do orçamento na aba BDI e encargos da exportação.
+O orçamento SICRO não usa a tabela de encargos da empresa.
 
 ## Importação de planilha orçamentária
 

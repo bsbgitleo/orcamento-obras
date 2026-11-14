@@ -69,7 +69,11 @@ export interface BudgetExport {
     base: { origin: string; uf: string; referenceMonth: string; regime: string };
     bdi: { name: string; percent: string; workType: string; centralAdministration: string; insurance: string; risk: string; guarantee: string; financialExpenses: string; profit: string; pis: string; cofins: string; iss: string; cprb: string };
     supplyBdi: { name: string; percent: string } | null;
-    socialCharges: { name: string; hourlyPct: string; monthlyPct: string };
+    /** Tabela da empresa (SINAPI); null nas bases SICRO */
+    socialCharges: { name: string; hourlyPct: string; monthlyPct: string } | null;
+    /** SICRO: encargos dos profissionais usados no orçamento, do relatório do DNIT */
+    laborCharges: { code: string; description: string; unit: string; A: string; B: string; C: string; D: string; total: string }[];
+    chargeLegend: { groups: Record<string, string>; items: Record<string, string> } | null;
     directCost: string; salePrice: string;
     proposalValidityDays: number | null; executionTerm: string | null; paymentTerms: string | null; proposalNotes: string | null;
     bidderInstructions: string | null; bidderPremises: string | null;
@@ -186,6 +190,12 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
     : null;
 
   const abc = await buildAbcReport(prisma, budget.id);
+  // SICRO: encargos dos profissionais (P9xxx) que aparecem no orçamento (decisão #70)
+  const laborCodes = abc.inputs.map((r) => r.item.code).filter((c) => /^P\d{4}$/.test(c));
+  const laborCharges = budget.priceTable.origin === "SICRO" && laborCodes.length
+    ? (await prisma.laborCharge.findMany({ where: { priceTableId: budget.priceTableId, code: { in: laborCodes } }, orderBy: { code: "asc" } }))
+      .map((c) => ({ code: c.code, description: c.description, unit: c.unit, A: c.groupA.toString(), B: c.groupB.toString(), C: c.groupC.toString(), D: c.groupD.toString(), total: c.total.toString() }))
+    : [];
   const s = (v: { toString(): string } | null | undefined) => v?.toString() ?? "0";
   return {
     company: {
@@ -206,7 +216,8 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
         financialExpenses: s(budget.bdi.financialExpenses), profit: s(budget.bdi.profit), pis: s(budget.bdi.pis), cofins: s(budget.bdi.cofins), iss: s(budget.bdi.iss), cprb: s(budget.bdi.cprb),
       },
       supplyBdi: budget.supplyBdi ? { name: budget.supplyBdi.name, percent: s(budget.supplyBdi.percent) } : null,
-      socialCharges: { name: budget.socialCharges.name, hourlyPct: s(budget.socialCharges.hourlyPct), monthlyPct: s(budget.socialCharges.monthlyPct) },
+      socialCharges: budget.socialCharges ? { name: budget.socialCharges.name, hourlyPct: s(budget.socialCharges.hourlyPct), monthlyPct: s(budget.socialCharges.monthlyPct) } : null,
+      laborCharges, chargeLegend: (budget.priceTable.chargeLegend as BudgetExport["budget"]["chargeLegend"]) ?? null,
       directCost: s(budget.directCost), salePrice: s(budget.salePrice),
       proposalValidityDays: budget.proposalValidityDays, executionTerm: budget.executionTerm, paymentTerms: budget.paymentTerms, proposalNotes: budget.proposalNotes,
       bidderInstructions: budget.bidderInstructions, bidderPremises: budget.bidderPremises, scheduleMonths: budget.scheduleMonths,

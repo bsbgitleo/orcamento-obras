@@ -33,7 +33,9 @@ function headerBlock(ws: ExcelJS.Worksheet, d: BudgetExport, title: string, last
     ["Cliente", d.client ? `${d.client.name}${d.client.document ? ` · ${d.client.document}` : ""}` : "—"],
     ["Base de preços", baseLabel(d)],
     ["BDI", `${d.budget.bdi.name} — ${Number(d.budget.bdi.percent).toFixed(2).replace(".", ",")} %${d.budget.supplyBdi ? ` · fornecimento ${Number(d.budget.supplyBdi.percent).toFixed(2).replace(".", ",")} %` : ""}`],
-    ["Encargos sociais", `${d.budget.socialCharges.name} (horista ${Number(d.budget.socialCharges.hourlyPct).toFixed(2).replace(".", ",")} %, mensalista ${Number(d.budget.socialCharges.monthlyPct).toFixed(2).replace(".", ",")} %)`],
+    ["Encargos sociais", d.budget.socialCharges
+      ? `${d.budget.socialCharges.name} (horista ${Number(d.budget.socialCharges.hourlyPct).toFixed(2).replace(".", ",")} %, mensalista ${Number(d.budget.socialCharges.monthlyPct).toFixed(2).replace(".", ",")} %)`
+      : "Por profissional, do relatório do DNIT (aba BDI e encargos); já incluídos no custo da mão de obra"],
     ["Revisão / emissão", `R${d.budget.revision} · ${dateBR(new Date())}`],
   ];
   rows.forEach(([k, v], i) => {
@@ -210,9 +212,23 @@ function bdiSheet(wb: ExcelJS.Workbook, d: BudgetExport) {
   ws.getCell(r, 1).font = BOLD; ws.getCell(r, 2).font = BOLD; ws.getCell(r, 2).numFmt = PCT; r++;
   ws.getRow(r).values = ["Tipo de obra (faixas do TCU)", WORK_TYPE_LABEL[b.workType] ?? b.workType]; r += 2;
   if (d.budget.supplyBdi) { ws.getRow(r).values = [`BDI de mero fornecimento — ${d.budget.supplyBdi.name}`, Number(d.budget.supplyBdi.percent)]; ws.getCell(r, 2).numFmt = PCT; r += 2; }
-  tableHeader(ws, r, ["Encargos sociais", "%"]); r++;
-  ws.getRow(r).values = [`Horista — ${d.budget.socialCharges.name}`, Number(d.budget.socialCharges.hourlyPct)]; ws.getCell(r, 2).numFmt = PCT; r++;
-  ws.getRow(r).values = ["Mensalista", Number(d.budget.socialCharges.monthlyPct)]; ws.getCell(r, 2).numFmt = PCT;
+  if (d.budget.socialCharges) {
+    tableHeader(ws, r, ["Encargos sociais", "%"]); r++;
+    ws.getRow(r).values = [`Horista — ${d.budget.socialCharges.name}`, Number(d.budget.socialCharges.hourlyPct)]; ws.getCell(r, 2).numFmt = PCT; r++;
+    ws.getRow(r).values = ["Mensalista", Number(d.budget.socialCharges.monthlyPct)]; ws.getCell(r, 2).numFmt = PCT;
+    return;
+  }
+  // SICRO: encargos por profissional (relatório analítico do DNIT), só os usados no orçamento
+  const g = d.budget.chargeLegend?.groups ?? {};
+  ws.getColumn(3).width = 8; [4, 5, 6, 7, 8].forEach((c) => { ws.getColumn(c).width = 14; });
+  ws.getCell(r, 1).value = "Encargos sociais e trabalhistas por profissional — SICRO (relatório analítico do DNIT)"; ws.getCell(r, 1).font = BOLD; r++;
+  tableHeader(ws, r, ["Profissional", "Código", "Und", `A — ${g.A ?? "Encargos sociais"}`, `B — ${g.B ?? "Encargos trabalhistas"}`, `C — ${g.C ?? "Verbas rescisórias"}`, `D — ${g.D ?? "Reincidências"}`, "Total"]); r++;
+  for (const c of d.budget.laborCharges) {
+    ws.getRow(r).values = [c.description, c.code, c.unit, Number(c.A), Number(c.B), Number(c.C), Number(c.D), Number(c.total)];
+    for (let k = 4; k <= 8; k++) ws.getCell(r, k).numFmt = PCT;
+    r++;
+  }
+  if (!d.budget.laborCharges.length) ws.getCell(r, 1).value = "Nenhum profissional no orçamento (ou a base foi importada sem o relatório de encargos).";
 }
 
 function cronograma(wb: ExcelJS.Workbook, d: BudgetExport) {

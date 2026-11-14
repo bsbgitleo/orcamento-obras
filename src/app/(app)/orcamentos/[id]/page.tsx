@@ -98,7 +98,9 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
           </dl>
           <dl className="kv">
             <dt>Base de preços</dt><dd>{budget.priceTable.origin} {budget.priceTable.uf} {refMonth(budget.priceTable.referenceMonth)} — {REGIME_LABEL[budget.priceTable.regime]}</dd>
-            <dt>Encargos sociais</dt><dd><Link href={`/encargos/${budget.socialCharges.id}`}>{budget.socialCharges.name}</Link> (horista {pct(budget.socialCharges.hourlyPct)}, mensalista {pct(budget.socialCharges.monthlyPct)})</dd>
+            <dt>Encargos sociais</dt><dd>{budget.socialCharges
+              ? <><Link href={`/encargos/${budget.socialCharges.id}`}>{budget.socialCharges.name}</Link> (horista {pct(budget.socialCharges.hourlyPct)}, mensalista {pct(budget.socialCharges.monthlyPct)})</>
+              : <><Link href={`/bases/${budget.priceTableId}/encargos`}>Por profissional, do relatório do DNIT</Link> (já incluídos no custo da mão de obra)</>}</dd>
             <dt>BDI</dt><dd><Link href={`/bdi/${budget.bdi.id}`}>{budget.bdi.name}</Link> — {pct(budget.bdi.percent)} ({WORK_TYPE_LABEL[budget.bdi.workType]})</dd>
             {budget.supplyBdi && <><dt>BDI fornecimento</dt><dd><Link href={`/bdi/${budget.supplyBdi.id}`}>{budget.supplyBdi.name}</Link> — {pct(budget.supplyBdi.percent)}</dd></>}
             <dt>Arredondamento</dt><dd>{budget.priceTable.origin === "SICRO"

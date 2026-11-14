@@ -35,7 +35,8 @@ export const newBudgetSchema = z.object({
   biddingAgency: optionalText,
   biddingOpensAt: dateTimeOrNull,
   // Passo 2 — encargos e BDI
-  socialChargesId: requiredText("Tabela de encargos sociais"),
+  /** Obrigatória nas bases SINAPI; nas SICRO os encargos vêm por profissional do DNIT (decisão #70) */
+  socialChargesId: optionalText,
   bdiId: requiredText("BDI"),
   supplyBdiId: optionalText,
   useSupplyBdi: checkbox,

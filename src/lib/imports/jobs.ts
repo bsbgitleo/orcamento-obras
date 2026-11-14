@@ -108,7 +108,7 @@ export async function saveUpload(jobId: string, files: File[]): Promise<{ dir: s
       dir,
       upload: {
         kind: "SICRO", uf: sicro.uf ?? null, ignored: sicro.ignored.length,
-        files: { analytic: sicro.analytic, materials: sicro.materials, syntheticCompositions: sicro.syntheticCompositions, priceOrigin: sicro.priceOrigin, labor: sicro.labor ?? {}, equipment: sicro.equipment ?? {} },
+        files: { analytic: sicro.analytic, materials: sicro.materials, syntheticCompositions: sicro.syntheticCompositions, priceOrigin: sicro.priceOrigin, labor: sicro.labor ?? {}, equipment: sicro.equipment ?? {}, charges: sicro.charges ?? {} },
       },
     };
   }
@@ -195,6 +195,7 @@ async function runSicroJob(jobId: string, dir: string, upload: Extract<UploadPac
       "Analítico de Composições", f.syntheticCompositions && "Sintético de Composições", "Materiais",
       f.labor.NAO_DESONERADO && "Mão de Obra", f.labor.DESONERADO && "Mão de Obra com desoneração",
       f.equipment.NAO_DESONERADO && "Equipamentos", f.equipment.DESONERADO && "Equipamentos com desoneração", f.priceOrigin && "Origem de Preços",
+      f.charges?.NAO_DESONERADO && "Encargos", f.charges?.DESONERADO && "Encargos com desoneração",
     ].filter(Boolean).join(", ");
     logger.log(`SICRO ${job.ufs[0]} — relatórios reconhecidos: ${found}${upload.ignored ? ` (${upload.ignored} ignorado(s))` : ""}.`);
     const regimes = (job.regimes as string[]).filter((r): r is SicroRegime => r === "NAO_DESONERADO" || r === "DESONERADO");
