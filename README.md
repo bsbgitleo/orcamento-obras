@@ -95,6 +95,14 @@ produção**; acréscimos percentuais dentro dos grupos; auxiliares e tempo fixo
 O momento de transporte (grupo F) depende da DMT do projeto e ainda não é calculado: esses serviços aparecem
 "sem transporte", com o custo igual ao publicado.
 
+## Importação de planilha orçamentária
+
+Em **Criar orçamento**, marque "importar as etapas e os serviços de uma planilha .xlsx" (ou use o atalho no orçamento
+vazio). O app acha o cabeçalho, sugere o papel de cada coluna e mostra a pré-visualização com o vínculo de cada
+serviço: código da base ou de composição própria → vinculado; sem código e com preço → nova composição própria com esse
+preço (com BDI, o app desconta o BDI do orçamento); sem preço → "sem custo". Reconhece a exportação do próprio app e o
+modelo de homogeneização das proponentes.
+
 ## Exportações
 
 Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, BDI e encargos, cronograma,

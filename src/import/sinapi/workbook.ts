@@ -73,10 +73,13 @@ export async function readSheetRows(path: string, sheetName: string): Promise<Ex
   }
 
   const rows: ExcelJS.CellValue[][] = [];
-  for (const row of xml.matchAll(/<(?:\w+:)?row\b[^>]*>([\s\S]*?)<\/(?:\w+:)?row>/g)) {
+  for (const row of xml.matchAll(/<(?:\w+:)?row\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?row>/g)) {
+    // Respeita o número da linha (r="12"); linhas ausentes ficam vazias
+    const rowNo = Number(/\br="(\d+)"/.exec(row[1])?.[1] ?? rows.length + 1);
+    while (rows.length < rowNo - 1) rows.push([]);
     const values: ExcelJS.CellValue[] = [];
     let next = 1;
-    for (const c of row[1].matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/g)) {
+    for (const c of row[2].matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/g)) {
       const attrs = c[1];
       const ref = /\br="([A-Z]+\d*)"/.exec(attrs)?.[1];
       const col = ref ? columnNumber(ref) : next;
@@ -90,6 +93,9 @@ export async function readSheetRows(path: string, sheetName: string): Promise<Ex
       else if (type === "str" || type === "e") value = raw === undefined ? null : decodeXml(raw);
       else if (type === "b") value = raw === "1";
       else if (raw !== undefined && raw !== "") value = Number(raw);
+      // Fórmula (ex.: HYPERLINK com o código da composição): devolve como o exceljs
+      const f = /<(?:\w+:)?f\b[^>]*>([\s\S]*?)<\/(?:\w+:)?f>/.exec(body)?.[1];
+      if (f) value = { formula: decodeXml(f), result: value ?? undefined } as ExcelJS.CellValue;
       values[col] = value;
     }
     rows.push(values);
@@ -105,7 +111,26 @@ export type SheetHandler = (ws: ExcelJS.stream.xlsx.WorksheetReader) => Promise<
  * consumed, otherwise the next sheet's temp file is removed before it is read).
  */
 export async function streamSheets(path: string, handlers: Record<string, SheetHandler>): Promise<void> {
-  const names = await readSheetNames(path);
+  const zip = await JSZip.loadAsync(await readFile(path));
+  const names = await sheetNamesFromZip(zip, path);
+  // The exceljs streaming reader parks worksheets that come BEFORE
+  // xl/sharedStrings.xml in temp files and, under load, sometimes yields them
+  // with unresolved strings ("[object Object]") or missing rows. Files written
+  // by exceljs itself (and some re-saved ones) have that order; the Caixa files
+  // don't. For those, read the sheets whole with our own parser instead.
+  const entries = Object.keys(zip.files);
+  const sst = entries.indexOf("xl/sharedStrings.xml");
+  const firstSheet = entries.findIndex((e) => /^xl\/worksheets\/sheet\d+\.xml$/.test(e));
+  if (sst > firstSheet && firstSheet >= 0) {
+    for (const [, name] of [...names].sort((a, b) => a[0] - b[0])) {
+      const handler = handlers[name];
+      if (!handler) continue;
+      const rows = await readSheetRows(path, name);
+      const iterable = { async *[Symbol.asyncIterator]() { for (const [i, values] of rows.entries()) yield { values, number: i + 1 } as unknown as ExcelJS.Row; } };
+      await handler(iterable as unknown as ExcelJS.stream.xlsx.WorksheetReader);
+    }
+    return;
+  }
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(path, {
     entries: "emit", sharedStrings: "cache", hyperlinks: "ignore", styles: "ignore", worksheets: "emit",
   });

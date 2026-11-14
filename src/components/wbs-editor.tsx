@@ -30,7 +30,7 @@ export interface WbsLine {
   isLast: boolean;
 }
 
-export function WbsEditor({ budgetId, lines, hasSupplyBdi, readOnly = false }: { budgetId: string; lines: WbsLine[]; hasSupplyBdi: boolean; readOnly?: boolean }) {
+export function WbsEditor({ budgetId, projectId, lines, hasSupplyBdi, readOnly = false }: { budgetId: string; projectId: string; lines: WbsLine[]; hasSupplyBdi: boolean; readOnly?: boolean }) {
   const [adding, setAdding] = useState<{ kind: "STAGE" | "SERVICE"; parentId: string | null } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -52,7 +52,10 @@ export function WbsEditor({ budgetId, lines, hasSupplyBdi, readOnly = false }: {
       )}
 
       {lines.length === 0 ? (
-        <div className="empty">A planilha está vazia. Comece adicionando uma etapa (ex.: &ldquo;Serviços preliminares&rdquo;).</div>
+        <div className="empty">
+          A planilha está vazia. Comece adicionando uma etapa (ex.: &ldquo;Serviços preliminares&rdquo;)
+          {!readOnly && <> ou <a href={`/orcamentos/${projectId}/importar`}>importe as etapas e os serviços de uma planilha .xlsx</a></>}.
+        </div>
       ) : (
         <table className="list wbs">
           <thead>

@@ -69,5 +69,5 @@ export async function createBudget(_prev: ActionState, fd: FormData): Promise<Ac
 
   revalidatePath("/orcamentos");
   revalidatePath("/");
-  redirect(`/orcamentos/${projectId}`);
+  redirect(d.importSheet ? `/orcamentos/${projectId}/importar` : `/orcamentos/${projectId}`);
 }

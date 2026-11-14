@@ -218,6 +218,9 @@ export function NewBudgetWizard({ options }: { options: WizardOptions }) {
         )}
         {err(state, "priceTableId") && <p className="error" style={{ color: "var(--danger)" }}>{err(state, "priceTableId")}</p>}
         <p className="muted" style={{ marginTop: 12 }}>Todo preço do orçamento ficará rastreado a esta origem, UF, mês de referência e regime.</p>
+            <label className="checkbox" style={{ marginTop: 10 }}>
+              <input type="checkbox" name="importSheet" /> Depois de criar, importar as etapas e os serviços de uma planilha .xlsx
+            </label>
       </div>
 
       <div className="actions">

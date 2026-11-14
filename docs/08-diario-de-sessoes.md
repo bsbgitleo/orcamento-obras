@@ -41,7 +41,7 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 
 ## Sessão 2 — sexta-feira, 13/11/2026 (Claude Code no Mac)
 
-**Início:** ~19:30 · **Última atualização:** 22:00
+**Início:** ~19:30 · **Última atualização:** 22:30
 
 ### Discutido / decidido
 - Levantamento do código no Mac; Leo arquivou referências de cotação (planilhas-padrão de proposta da SQS 211 G e SQS 308 I e duas propostas de fornecedor) em `orcamento-obras-dados/referencias/` (fora do repositório) e trouxe os documentos 03, 07, 08 e 09 para `docs/`.
@@ -80,3 +80,10 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 - Respostas do Leo: entram as quatro exportações (Excel sintética/analítica; BDI, cronograma e ABC; proposta em PDF; planilha para proponentes), com **valores iguais ao app** e **PDF pela página de impressão** (#59–#61).
 - Feito (sem commit): migração `20261114030000_exports` (dados da empresa, da proposta, dos proponentes e especificação por serviço); `src/lib/exports/*` (carregador único, gerador do Excel e da planilha para proponentes) com testes; valor por extenso (`src/core/extenso.ts`) com testes; abas Especificações e Exportar no orçamento; Empresa → Dados da empresa; página A4 da proposta.
 - Teste no navegador (aba separada, porque o Leo estava usando o painel): dados da empresa salvos; especificação e "exige marca" num serviço; dados da proposta; os dois .xlsx baixam com nome certo; proposta com valor por extenso e assinatura. Excel conferido: na analítica SICRO os subtotais batem com o DNIT (execução 166,2907; FIC 3,5186; subtotal 5.112,0096).
+
+### Continuação — envio ao GitHub e importação de planilha (22:00–22:30)
+- Commit das exportações (`fcbeac3`); ramo juntado ao `main`. O push falhou com 403 (a credencial do Mac é da conta `leobsb`, que não era colaboradora); o Leo convidou e aceitou, e o `main` foi enviado. Observação: o repositório é **público**.
+- Pedido do Leo: importar planilha orçamentária .xlsx. Respostas: qualquer planilha (com mapeamento), modelos de proponentes e exportação do app; item sem código vira composição própria com o preço; BDI perguntado na importação; **só orçamento novo** (#62–#64).
+- Feito (sem commit): `src/core/sheet-import.ts` (cabeçalho, papéis das colunas, hierarquia pela numeração) com testes; leitor `src/lib/imports/sheet-grid.ts`; ações de leitura, busca de códigos e gravação; tela `/orcamentos/[id]/importar` com pré-visualização; opção no assistente; atalho no orçamento vazio.
+- Testes com arquivos reais: Anexo II = 8 etapas e 57 serviços, carta-convite = 7 e 44 (iguais aos originais); importação do Anexo II com especificação, critério e marca; planilha com preço com BDI → 87879 vinculado (R$ 5,47) e uma composição própria a R$ 20,00 que volta a R$ 24,77 com BDI; reimportação da exportação do app vinculando SINAPI e CP-0001.
+- Nos testes apareceu uma falha intermitente no leitor do SINAPI (textos "[object Object]" sob carga). Causa: o streaming do exceljs com abas antes dos textos compartilhados — ordem que o próprio arquivo da Caixa tem. Corrigido lendo essas abas com o leitor próprio (#65); 8 execuções seguidas da suíte sem falha; reimportações reais iguais ao publicado.

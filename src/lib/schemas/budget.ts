@@ -41,6 +41,8 @@ export const newBudgetSchema = z.object({
   useSupplyBdi: checkbox,
   // Passo 3 — base de preços
   priceTableId: requiredText("Base de preços"),
+  /** Depois de criar, abrir a importação da EAP de uma planilha .xlsx (decisão #62) */
+  importSheet: checkbox,
 }).superRefine((d, ctx) => {
   if (d.type === "PUBLIC") {
     if (!d.biddingAgency) ctx.addIssue({ code: "custom", path: ["biddingAgency"], message: "Informe o órgão licitante" });

@@ -71,7 +71,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         <h2 style={{ marginTop: 0 }}>Planilha orçamentária <span className="muted" style={{ fontWeight: 400 }}>· {services} serviço(s)</span></h2>
         {incomplete > 0 && <div className="form-error">{incomplete} serviço(s) sem custo: a composição tem insumo sem preço nesta base. Eles não entram nos totais.</div>}
         {transportCount > 0 && <div className="form-error" style={{ background: "#fff8ec", borderColor: "#f0d9a8", color: "#7a5300" }}>{transportCount} serviço(s) do SICRO com momento de transporte (grupo F) sem DMT: o custo está igual ao publicado pelo DNIT, que não inclui o transporte. A DMT do projeto entra numa próxima etapa.</div>}
-        <WbsEditor budgetId={budget.id} lines={lines} hasSupplyBdi={!!budget.supplyBdi} readOnly={!canEdit(role)} />
+        <WbsEditor budgetId={budget.id} projectId={project.id} lines={lines} hasSupplyBdi={!!budget.supplyBdi} readOnly={!canEdit(role)} />
       </div>
 
       {maintenance && <MaintenancePanel check={maintenance} />}
