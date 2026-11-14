@@ -73,7 +73,11 @@ export async function createOwnComposition(_prev: ActionState, fd: FormData): Pr
       include: { items: { include: { input: true, childComposition: true } } },
     });
     if (!source) return { status: "error", message: `A composição ${copyFromCode} não existe na base escolhida.`, fieldErrors: { copyFromCode: "Não encontrada" }, values: r.values };
-    const origin = table.origin === "SICRO" ? "SICRO" : "SINAPI";
+    if (table.origin === "SICRO") {
+      // Equipe, produção horária e FIC do SICRO não cabem numa composição própria (coeficiente × preço)
+      return { status: "error", message: "Cópia de composição do SICRO ainda não é possível. Inclua a composição do SICRO como item (auxiliar) de uma composição própria.", fieldErrors: { copyFromCode: "SICRO" }, values: r.values };
+    }
+    const origin = "SINAPI" as const;
     derived = { derivedFromOrigin: origin, derivedFromCode: source.code };
     if (!data.description) data.description = source.description;
     if (!data.unit) data.unit = source.unit;

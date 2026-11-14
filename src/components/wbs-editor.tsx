@@ -24,6 +24,8 @@ export interface WbsLine {
   compositionCode: string | null;
   /** Serviço com composição própria da empresa */
   ownComposition: boolean;
+  /** SICRO: composição com momento de transporte sem DMT */
+  transportPending?: boolean;
   isFirst: boolean;
   isLast: boolean;
 }
@@ -109,6 +111,7 @@ function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, readOnly, editing
             {l.description}
             {l.isSupplyItem && <span className="badge" style={{ marginLeft: 8 }}>fornecimento</span>}
             {!isStage && l.unitCost === null && <span className="badge danger" style={{ marginLeft: 8 }}>sem custo</span>}
+            {l.transportPending && <span className="badge warn" style={{ marginLeft: 8 }} title="Momento de transporte (grupo F) sem DMT: custo igual ao publicado, sem transporte">sem transporte</span>}
           </span>
         )}
       </td>

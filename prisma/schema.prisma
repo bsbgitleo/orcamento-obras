@@ -62,6 +62,8 @@ enum InputKind {
 enum CompositionItemType {
   INSUMO
   COMPOSICAO_AUXILIAR
+  /// SICRO: acréscimo percentual sobre a soma da seção (ex.: "Instalações… (10.00%)")
+  PERCENTUAL
 }
 
 enum WbsNodeKind {
@@ -246,7 +248,11 @@ model Input {
   unit            String
   kind            InputKind
   /// null = sem preço nesta UF/mês ("SEM PREÇO" no SINAPI)
-  unitPrice       Decimal?          @db.Decimal(15, 2)
+  /// SINAPI publica 2 casas; SICRO, 4
+  unitPrice       Decimal?          @db.Decimal(15, 4)
+  /// SICRO, equipamentos: custo horário produtivo e improdutivo (R$/h)
+  productiveCost   Decimal?         @db.Decimal(15, 4)
+  unproductiveCost Decimal?         @db.Decimal(15, 4)
   /// Classificação original da fonte (SINAPI: MATERIAL, MAO DE OBRA, EQUIPAMENTO (AQUISIÇÃO), ENCARGOS COMPLEMENTARES...)
   sourceClass     String?
   /// Origem de preço SINAPI: C = coletado, CR = coef. de representatividade, AS = atribuído por similaridade
@@ -274,6 +280,9 @@ model Composition {
   group         String?
   /// Custo unitário publicado pela fonte (CSD/CCD/CSE) — usado para conferir o cálculo
   referenceCost Decimal?          @db.Decimal(15, 2)
+  /// SICRO: produção da equipe (unidades por hora) e fator de influência de chuvas
+  productionRate Decimal?         @db.Decimal(18, 7)
+  fic            Decimal?         @db.Decimal(9, 5)
   /// Custo unitário calculado pelo app a partir dos itens (cache; null = incompleta / sem custo)
   unitCost      Decimal?          @db.Decimal(15, 2)
   /// Percentual de mão de obra no custo (relatório "mão de obra" do SINAPI), fração 0–1
@@ -305,6 +314,18 @@ model CompositionItem {
   childCompositionId String?
   childComposition   Composition?        @relation("ChildComposition", fields: [childCompositionId], references: [id])
   coefficient        Decimal             @db.Decimal(18, 7) // SINAPI publica até 7 casas
+  /// Ordem do item na composição (no SICRO a linha percentual soma o grupo até ali)
+  position           Int?
+  /// SICRO: grupo do item (A equipamentos, B mão de obra, C material, D auxiliares, E tempo fixo, F transporte)
+  sicroGroup         String?             @db.Char(1)
+  /// SICRO, equipamentos: utilização operativa e improdutiva
+  operativeUse       Decimal?            @db.Decimal(9, 5)
+  unproductiveUse    Decimal?            @db.Decimal(9, 5)
+  /// SICRO, PERCENTUAL: percentual (10 = 10 %) e rótulo publicado
+  percent            Decimal?            @db.Decimal(9, 4)
+  label              String?
+  /// SICRO, transporte (F): códigos das composições de transporte por via [LN, RP, P]
+  transportCodes     String[]
 
   @@index([compositionId])
   @@index([inputId])

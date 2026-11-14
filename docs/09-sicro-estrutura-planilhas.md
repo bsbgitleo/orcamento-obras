@@ -25,7 +25,9 @@ A - EQUIPAMENTOS   código | descrição | quantidade | utilização operativa |
 B - MÃO DE OBRA    código | descrição | quantidade | unidade | custo horário | custo horário total
    Custo horário total de execução = ΣA + ΣB
    Custo unitário de execução       = custo horário total / produção da equipe
-   Custo do FIC                     = custo unitário de execução × FIC
+   Custo do FIC                     = FIC × (Σ qtd × custo improdutivo dos equipamentos + Σ mão de obra) ÷ produção
+                                      (corrigido em 13/11 — decisão #55; "execução × FIC" só bate quando não há equipamento)
+   Linhas "(10.00%)" / "(5.00%)" nos grupos B, C, D = acréscimo sobre a soma do grupo até ali
 C - MATERIAL       código | descrição | quantidade | unidade | preço unitário | custo unitário (= qtd × preço)
 D - ATIVIDADES AUXILIARES  código (composição) | quantidade | unidade | custo unitário (da composição) | custo
    Subtotal = execução + FIC + C + D

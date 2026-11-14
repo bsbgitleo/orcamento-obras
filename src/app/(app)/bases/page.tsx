@@ -63,6 +63,13 @@ export default async function PriceTablesPage() {
           : <>Manutenções do SINAPI ainda não importadas: os orçamentos não recebem alerta de composições desativadas ou alteradas.</>}
       </p>
 
+      {isAdmin && (
+        <p className="muted" style={{ fontSize: 13 }}>
+          SICRO (DNIT): por enquanto a importação é pela linha de comando, com a pasta dos relatórios .xlsx da UF:
+          <code> npm run sicro:import -- --dir &quot;pasta&quot;</code>.
+        </p>
+      )}
+
       {isAdmin && jobs.length > 0 && (
         <>
           <h2>Últimas importações</h2>

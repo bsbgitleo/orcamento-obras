@@ -15,7 +15,7 @@ const classBadge = (c: string) => <span className={`badge ${c === "A" ? "danger"
 export default async function AbcPage(props: PageProps<"/orcamentos/[id]/curva-abc">) {
   const { id } = await props.params;
   const { company } = await requireAuth();
-  const project = await prisma.project.findFirst({ where: { id, companyId: company.id }, include: { budgets: { orderBy: { revision: "desc" }, take: 1 } } });
+  const project = await prisma.project.findFirst({ where: { id, companyId: company.id }, include: { budgets: { orderBy: { revision: "desc" }, take: 1, include: { priceTable: { select: { origin: true } } } } } });
   if (!project) notFound();
   const budget = project.budgets[0];
   const report = await buildAbcReport(prisma, budget.id);
@@ -50,7 +50,9 @@ export default async function AbcPage(props: PageProps<"/orcamentos/[id]/curva-a
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Curva ABC de insumos <span className="muted" style={{ fontWeight: 400 }}>· A: {count(report.inputs, "A")} · B: {count(report.inputs, "B")} · C: {count(report.inputs, "C")} · total {brl(report.inputsTotal)}</span></h2>
-        <p className="muted">Quantidades obtidas pela explosão das composições (quantidade do serviço × coeficientes, atravessando as auxiliares). O total difere em centavos do custo direto por causa do truncamento item a item do SINAPI. Use a classe A para pesquisar preços no mercado local (TCU, guia 4.2.9).</p>
+        <p className="muted">Quantidades obtidas pela explosão das composições (quantidade do serviço × coeficientes, atravessando as auxiliares). {project.budgets[0]?.priceTable.origin === "SICRO"
+          ? "No SICRO, equipamentos e mão de obra entram em horas por unidade (quantidade da equipe ÷ produção); o total fica abaixo do custo direto porque não inclui o FIC (fator de influência de chuvas) e os acréscimos percentuais."
+          : "O total difere em centavos do custo direto por causa do truncamento item a item do SINAPI."} Use a classe A para pesquisar preços no mercado local (TCU, guia 4.2.9).</p>
         {report.inputs.length === 0 ? <div className="empty">Sem insumos.</div> : (
           <table className="list">
             <thead><tr><th>#</th><th>Código</th><th>Descrição</th><th>Tipo</th><th>Un.</th><th className="num">Quant.</th><th className="num">Preço unit.</th><th className="num">Total</th><th className="num">%</th><th className="num">% acum.</th><th>Classe</th></tr></thead>

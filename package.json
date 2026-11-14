@@ -18,6 +18,7 @@
     "sinapi:validate": "tsx scripts/validate-sinapi.ts",
     "sinapi:check": "tsx scripts/check-price-table.ts",
     "admin:platform": "tsx scripts/platform-admin.ts",
+    "sicro:import": "tsx scripts/import-sicro.ts",
     "setup": "npm run db:migrate"
   },
   "dependencies": {

@@ -58,17 +58,21 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 52 | 2026-11-13 | **Insumo próprio**: um preço com **fonte e data** (fornecedor, cotação, nota fiscal…) e observação; mão de obra já com encargos. Várias cotações com mediana ficam para o módulo de cotação. Códigos sugeridos `IP-0001` e `CP-0001`, editáveis, únicos por empresa | **Aprovado pelo Leo** · implementado |
 | 53 | 2026-11-13 | **Alterar composição ou insumo próprio** vale para os orçamentos no **próximo recálculo** de cada um. O congelamento entra junto com a aprovação do orçamento | **Aprovado pelo Leo** · implementado |
 | 54 | 2026-11-13 | **Implementação da base própria**: tabelas `OwnInput`, `OwnComposition`, `OwnCompositionItem` e `WbsNode.ownCompositionId` (as colunas antigas `Composition.derivedFromId/justification` ficam sem uso). Um catálogo único (oficial + próprio) alimenta recálculo, curva ABC, alertas de manutenção e a busca da EAP (filtro oficial / própria, #36). Criação do zero ou **por cópia de uma composição oficial** (guarda a origem; justificativa técnica com aviso de que o TCU a exige em obra pública). Composição auxiliar própria permitida, com bloqueio de referência circular. Exclusão bloqueada se usada em orçamento ou em outra composição, com confirmação em dois cliques na tela (sem caixa do navegador) | Aprovado (proposto pelo Claude) · implementado |
+| 55 | 2026-11-13 | **Regra de cálculo do SICRO conferida** (corrige o doc 09): **custo do FIC = FIC × (Σ qtd × custo improdutivo dos equipamentos + Σ mão de obra) ÷ produção** — e não "execução × FIC" (na chuva o equipamento fica parado e a equipe é paga). Cada item com 4 casas (meio para cima); linhas de **acréscimo percentual** dentro dos grupos (ex.: "Instalações… (10.00%)", "Despesas diversas… (5.00%)") somam o grupo até ali; auxiliar e tempo fixo entram pelo custo final (2 casas) da composição; custo final com 2 casas meio para cima. **6.619 de 6.619** composições do DF 07/2026 iguais ao publicado, recalculadas a partir dos relatórios sintéticos | Aprovado (verificado) · implementado |
+| 56 | 2026-11-13 | **Modelo do SICRO** nas mesmas tabelas das bases oficiais: `Input.unitPrice` passa a 4 casas; equipamentos com custo produtivo e improdutivo; `Composition.productionRate` e `fic`; `CompositionItem.position`, `sicroGroup` (A–F), utilizações, `percent`/`label` (novo tipo `PERCENTUAL`) e `transportCodes`. O motor geral escolhe o método pela composição (`method: "SICRO"`), então orçamento, curva ABC (equipe em horas por unidade) e composições próprias funcionam com as duas bases | Aprovado (proposto pelo Claude) · implementado |
+| 57 | 2026-11-13 | **Importação do SICRO**: arquivos reconhecidos pelo nome do DNIT; uma base por regime (sem / com desoneração: mão de obra e equipamentos desonerados, materiais e estrutura iguais). Material sem preço no relatório entra com **R$ 0,00**, como o DNIT calcula (origem do preço na UF gravada em `Input.priceOrigin`, ex.: PRZ). A base com desoneração não tem custo publicado para conferir. Transporte de material produzido na obra (brita de central etc.) liga à composição. Reimportação bloqueada se houver orçamento (#46). Por enquanto pela linha de comando (`npm run sicro:import`) | Aprovado (proposto pelo Claude) · implementado |
+| 58 | 2026-11-13 | **Transporte (grupo F) adiado**: a fórmula com DMT e FIT não pode ser conferida com os relatórios (o DNIT publica sem transporte). Até ser implementada a partir do Manual de Custos do DNIT, o custo fica igual ao publicado e os serviços são sinalizados "sem transporte" (#39) | Pendente — confirmar com o Leo |
 
-## Estado do código (2026-11-13, 20h45)
-- Repo: github.com/bsbgitleo/orcamento-obras. Ramo local `feat/importacao-sinapi`: commit `fdd89db` (importação, #45–#50); a base própria (#51–#54) está na pasta, **sem commit**. Nada enviado ao GitHub; `main` continua em `5cd512b`.
-- **97 testes**; `tsc` e `eslint` sem erros.
-- Telas: Início, Clientes, BDI, Encargos sociais, Bases (lista, Importar SINAPI, acompanhamento), **Base própria (composições e insumos próprios)**, Orçamentos (lista, assistente, planilha com EAP — busca oficial/própria —, alertas de manutenção, curva ABC, cronograma), Login/Cadastro, Minha senha, Empresa → Usuários.
+## Estado do código (2026-11-13, 21h30)
+- Repo: github.com/bsbgitleo/orcamento-obras. Ramo local `feat/importacao-sinapi`: `fdd89db` (importação, #45–#50) e `486337c` (base própria, #51–#54); o SICRO (#55–#58) está na pasta, **sem commit**. Nada enviado ao GitHub; `main` continua em `5cd512b`.
+- **103 testes**; `tsc` e `eslint` sem erros.
+- Bases no banco local: SINAPI DF 10/2026 (3 regimes) e **SICRO DF 07/2026 (2 regimes)**, ambas iguais ao publicado.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
 2. ~~Upload SINAPI pela interface + UF escolhida + Manutenções (#32–#34)~~ ✔ (#45–#49)
 3. ~~Composições próprias + busca unificada (#36)~~ ✔ (#51–#54)
-4. SICRO: motor, importador das 12 planilhas, DMT no orçamento (#38–#40).
+4. ~~SICRO: motor e importador~~ ✔ (#55–#57). **Falta: DMT/transporte (#58), importação SICRO pela tela, encargos por profissional (#40).**
 5. Exportações (Excel/PDF) e proposta comercial.
 
 ## Pendências
@@ -80,3 +84,4 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 - Importação em processo separado (worker) se a hospedagem escolhida exigir (#47).
 - Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
 - Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.
+- SICRO: DMT/transporte (#58); importação pela tela; encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).

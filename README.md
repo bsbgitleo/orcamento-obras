@@ -19,6 +19,7 @@ src/core/        núcleo de cálculo puro (sem banco, sem UI) — 100 % testado
   wbs.ts           EAP com numeração automática e movimentação de itens
   maintenance.ts   alertas de manutenção do SINAPI (desativada / alterada) para orçamentos antigos
   own-composition.ts composições próprias no catálogo: itens oficiais por código, insumos próprios, ciclos
+  sicro.ts         método de cálculo do DNIT (equipe, produção, FIC, acréscimos, tempo fixo)
 src/import/sinapi/ importador das planilhas da Caixa (streaming, exceljs)
   parse-reference.ts   SINAPI_Referência_AAAA_MM.xlsx → insumos, composições, árvore analítica
   parse-labor-share.ts SINAPI_mao_de_obra_AAAA_MM.xlsx → % de mão de obra por composição
@@ -26,6 +27,7 @@ src/import/sinapi/ importador das planilhas da Caixa (streaming, exceljs)
   classify.ts          reconhece cada planilha pelas abas (os nomes no ZIP da Caixa vêm sem acento)
   load.ts              grava uma PriceTable (origem + UF + mês + regime) e as manutenções
   run-import.ts        fluxo completo (UFs × regimes, cache de custos, conferência), usado pela CLI e pela tela
+src/import/sicro/  importador dos relatórios do DNIT (SICRO)
 src/lib/imports/   importação em segundo plano pela interface (ImportJob)
 src/lib/pricing/budget-catalog.ts catálogo de uma base + composições próprias (recálculo, ABC, alertas, busca)
 scripts/           CLIs: import-sinapi, validate-sinapi, check-price-table, platform-admin
@@ -77,6 +79,21 @@ npm run sinapi:check -- DF 2026-10 NAO_DESONERADO   # recalcula tudo e compara c
 - **SINAPI_Manutenções** é cumulativo e nacional (34.393 registros desde 07/2009 no arquivo de 10/2026): cada importação
   substitui o anterior, e um arquivo mais antigo não sobrescreve um mais novo. Os orçamentos feitos numa referência
   anterior mostram as composições e os insumos (inclusive de composições auxiliares) desativados ou alterados depois.
+
+## Importando o SICRO (DNIT)
+
+Baixe no site do DNIT os relatórios da UF/mês em .xlsx (Analítico e Sintético de Composições, Sintéticos de Materiais,
+Mão de Obra e Equipamentos — com e sem desoneração — e, opcionalmente, Origem de Preços) numa pasta e rode:
+
+```bash
+npm run sicro:import -- --dir "DF 07-2026" --regime ALL
+```
+
+Método do DNIT reproduzido (6.619 composições do DF 07/2026 iguais ao publicado): itens com 4 casas (meio para cima);
+execução = (equipamentos + mão de obra) ÷ produção; **FIC = FIC × (custo improdutivo dos equipamentos + mão de obra) ÷
+produção**; acréscimos percentuais dentro dos grupos; auxiliares e tempo fixo pelo custo final; total com 2 casas.
+O momento de transporte (grupo F) depende da DMT do projeto e ainda não é calculado: esses serviços aparecem
+"sem transporte", com o custo igual ao publicado.
 
 ## Base própria
 

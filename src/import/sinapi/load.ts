@@ -19,10 +19,10 @@ export interface LoadResult {
 
 /** Reimporting a table that budgets already use is refused (decisão #46). */
 export class BaseInUseError extends Error {
-  constructor(public uf: string, public referenceMonth: string, public regime: string, public budgets: number) {
+  constructor(public uf: string, public referenceMonth: string, public regime: string, public budgets: number, public origin = "SINAPI") {
     const label: Record<string, string> = { NAO_DESONERADO: "sem desoneração", DESONERADO: "com desoneração", SEM_ENCARGOS: "sem encargos sociais" };
     const [y, m] = referenceMonth.split("-");
-    super(`A base SINAPI ${uf} ${m}/${y} ${label[regime] ?? regime} já é usada por ${budgets} orçamento(s); a reimportação foi bloqueada.`);
+    super(`A base ${origin} ${uf} ${m}/${y} ${label[regime] ?? regime} já é usada por ${budgets} orçamento(s); a reimportação foi bloqueada.`);
     this.name = "BaseInUseError";
   }
 }
@@ -93,20 +93,20 @@ export async function loadSinapiReference(
   // Items
   let unresolved = 0;
   const itemRows: {
-    compositionId: string; type: "INSUMO" | "COMPOSICAO_AUXILIAR";
+    compositionId: string; position: number; type: "INSUMO" | "COMPOSICAO_AUXILIAR";
     inputId: string | null; childCompositionId: string | null; coefficient: string;
   }[] = [];
   for (const c of parsed.compositions) {
     const compositionId = compIds.get(c.code)!;
-    for (const it of c.items) {
+    for (const [position, it] of c.items.entries()) {
       if (it.type === "INSUMO") {
         const inputId = inputIds.get(it.code) ?? null;
         if (!inputId) unresolved++;
-        itemRows.push({ compositionId, type: "INSUMO", inputId, childCompositionId: null, coefficient: it.coefficient });
+        itemRows.push({ compositionId, position, type: "INSUMO", inputId, childCompositionId: null, coefficient: it.coefficient });
       } else {
         const childCompositionId = compIds.get(it.code) ?? null;
         if (!childCompositionId) unresolved++;
-        itemRows.push({ compositionId, type: "COMPOSICAO_AUXILIAR", inputId: null, childCompositionId, coefficient: it.coefficient });
+        itemRows.push({ compositionId, position, type: "COMPOSICAO_AUXILIAR", inputId: null, childCompositionId, coefficient: it.coefficient });
       }
     }
   }

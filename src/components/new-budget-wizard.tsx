@@ -158,7 +158,7 @@ export function NewBudgetWizard({ options }: { options: WizardOptions }) {
       {/* ── Passo 2 ── */}
       <div className="card" hidden={step !== 1}>
         <h2 style={{ marginTop: 0 }}>Arredondamento</h2>
-        <p>Custo de cada item = <code>TRUNC(coeficiente × preço, 2)</code>; custo da composição = soma dos itens; custo do serviço = <code>TRUNC(quantidade × custo unitário, 2)</code>. É a regra do SINAPI (conferida centavo a centavo) e vale para todo o orçamento.</p>
+        <p>Custo de cada item = <code>TRUNC(coeficiente × preço, 2)</code>; custo da composição = soma dos itens; custo do serviço = <code>TRUNC(quantidade × custo unitário, 2)</code>. É a regra do SINAPI (conferida centavo a centavo). Nas bases do SICRO, a composição segue o método do DNIT (itens com 4 casas e custo final arredondado meio para cima, também conferido centavo a centavo); o custo do serviço e o preço com BDI seguem a mesma regra acima.</p>
 
         <h2>Encargos sociais</h2>
         <Field label="Tabela de encargos sociais" name="socialChargesId" error={err(state, "socialChargesId")} hint="Deve ter o mesmo regime (desonerado / não desonerado) da base de preços">

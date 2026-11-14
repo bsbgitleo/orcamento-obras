@@ -9,6 +9,7 @@ import { WbsEditor, type WbsLine } from "@/components/wbs-editor";
 import { BudgetTabs } from "@/components/budget-tabs";
 import { MaintenancePanel } from "@/components/maintenance-panel";
 import { checkBudgetMaintenance } from "@/lib/pricing/maintenance-alerts";
+import { servicesWithPendingTransport } from "@/lib/pricing/transport";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,9 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
   };
   walk(null, 1);
   const maintenance = await checkBudgetMaintenance(prisma, { ...budget, companyId: company.id });
+  const pendingTransport = budget.priceTable.origin === "SICRO" ? await servicesWithPendingTransport(prisma, budget.priceTableId, company.id, budget.nodes) : new Set<string>();
+  for (const l of lines) if (pendingTransport.has(l.id)) l.transportPending = true;
+  const transportCount = pendingTransport.size;
   const incomplete = lines.filter((l) => l.kind === "SERVICE" && l.unitCost === null).length;
   const services = lines.filter((l) => l.kind === "SERVICE").length;
 
@@ -66,6 +70,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Planilha orçamentária <span className="muted" style={{ fontWeight: 400 }}>· {services} serviço(s)</span></h2>
         {incomplete > 0 && <div className="form-error">{incomplete} serviço(s) sem custo: a composição tem insumo sem preço nesta base. Eles não entram nos totais.</div>}
+        {transportCount > 0 && <div className="form-error" style={{ background: "#fff8ec", borderColor: "#f0d9a8", color: "#7a5300" }}>{transportCount} serviço(s) do SICRO com momento de transporte (grupo F) sem DMT: o custo está igual ao publicado pelo DNIT, que não inclui o transporte. A DMT do projeto entra numa próxima etapa.</div>}
         <WbsEditor budgetId={budget.id} lines={lines} hasSupplyBdi={!!budget.supplyBdi} readOnly={!canEdit(role)} />
       </div>
 
@@ -94,7 +99,9 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
             <dt>Encargos sociais</dt><dd><Link href={`/encargos/${budget.socialCharges.id}`}>{budget.socialCharges.name}</Link> (horista {pct(budget.socialCharges.hourlyPct)}, mensalista {pct(budget.socialCharges.monthlyPct)})</dd>
             <dt>BDI</dt><dd><Link href={`/bdi/${budget.bdi.id}`}>{budget.bdi.name}</Link> — {pct(budget.bdi.percent)} ({WORK_TYPE_LABEL[budget.bdi.workType]})</dd>
             {budget.supplyBdi && <><dt>BDI fornecimento</dt><dd><Link href={`/bdi/${budget.supplyBdi.id}`}>{budget.supplyBdi.name}</Link> — {pct(budget.supplyBdi.percent)}</dd></>}
-            <dt>Arredondamento</dt><dd>TRUNC(coef × preço, 2) por item; TRUNC(qtd × custo, 2); preço unit. = TRUNC(custo × (1 + BDI), 2)</dd>
+            <dt>Arredondamento</dt><dd>{budget.priceTable.origin === "SICRO"
+              ? "Composição pelo método do DNIT (itens com 4 casas, custo final arredondado meio para cima); serviço: TRUNC(qtd × custo, 2); preço unit. = TRUNC(custo × (1 + BDI), 2)"
+              : "TRUNC(coef × preço, 2) por item; TRUNC(qtd × custo, 2); preço unit. = TRUNC(custo × (1 + BDI), 2)"}</dd>
           </dl>
         </div>
       </details>

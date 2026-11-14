@@ -53,7 +53,7 @@ export async function checkBudgetMaintenance(
         if (it.type === "INSUMO") {
           const i = catalog.getInput(it.inputId);
           if (i && !isOwnInputKey(it.inputId) && !isMissingKey(it.inputId)) mark("INSUMO", i.code, i.description, s.code);
-        } else walk(it.compositionId);
+        } else if (it.type === "COMPOSICAO_AUXILIAR") walk(it.compositionId);
       }
     };
     walk(s.ownCompositionId ? ownCompositionKey(s.ownCompositionId) : s.compositionId!);

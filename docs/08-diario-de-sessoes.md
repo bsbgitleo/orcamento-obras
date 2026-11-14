@@ -41,7 +41,7 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 
 ## Sessão 2 — sexta-feira, 13/11/2026 (Claude Code no Mac)
 
-**Início:** ~19:30 · **Última atualização:** 20:45
+**Início:** ~19:30 · **Última atualização:** 21:30
 
 ### Discutido / decidido
 - Levantamento do código no Mac; Leo arquivou referências de cotação (planilhas-padrão de proposta da SQS 211 G e SQS 308 I e duas propostas de fornecedor) em `orcamento-obras-dados/referencias/` (fora do repositório) e trouxe os documentos 03, 07, 08 e 09 para `docs/`.
@@ -66,3 +66,11 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 - Feito (sem commit): migração `20261114010000_own_compositions`; núcleo `own-composition.ts` (catálogo oficial + próprio, ciclos) com testes; carregador `budget-catalog.ts` usado por recálculo, curva ABC, alertas e busca; telas Composições próprias (lista com base de referência, criação do zero ou por cópia, ficha com itens, coeficientes, ordem e custo por item) e Insumos próprios; EAP com filtro oficial/própria e selo "própria".
 - Teste no navegador: cópia da 87879 deu R$ 5,47 (igual ao publicado); com o insumo próprio (0,02 L × R$ 38,90) R$ 6,24 sem desoneração e R$ 6,07 com desoneração; no orçamento, 100 m² = R$ 624,00 e preço com BDI R$ 7,72; curva ABC explode a composição própria até o insumo próprio; exclusão de composição em uso bloqueada com aviso.
 - Corrigido no teste: o aviso de erro do botão de excluir sumia ao fechar a pergunta.
+
+### Continuação — SICRO (20:50–21:30)
+- Commit das composições próprias (`486337c`).
+- As 12 planilhas do SICRO DF 07/2026 estavam em Downloads; copiadas para `orcamento-obras-dados/sicro-df-2026-07/`.
+- Protótipo em Python achou a regra exata do DNIT: o **FIC incide sobre o custo improdutivo dos equipamentos + mão de obra** (o doc 09 dizia "execução × FIC", o que falha em toda composição com equipamento) e há **linhas de acréscimo percentual** (10 % de instalações, 5 % de despesas do estaleiro). Com isso, 6.619 de 6.619 composições iguais ao publicado, recalculando em cadeia a partir dos sintéticos.
+- Feito (sem commit): migração `20261114020000_sicro`; `src/core/sicro.ts` com testes (0307731 = R$ 184,60; 0308308 = R$ 5.112,79); importador `src/import/sicro/*` e `npm run sicro:import`; importação real dos dois regimes em 12 s, custos 100 % iguais ao publicado; catálogo, curva ABC e composições próprias com SICRO; selo e aviso "sem transporte".
+- Teste no navegador: orçamento SICRO criado pelo assistente; 0307731 × 10 = R$ 1.846,00 e 0308308 × 2 = R$ 10.225,58, os dois sinalizados "sem transporte"; curva ABC com equipamentos em horas.
+- Ficou para decidir: fórmula do transporte com DMT (#58).
