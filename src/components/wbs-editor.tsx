@@ -28,6 +28,10 @@ export interface WbsLine {
   transportPending?: boolean;
   /** Linha gerada pelo app (etapa de transportes do SICRO) */
   auto?: boolean;
+  /** Quantidade vinculada a um parâmetro da memória de cálculo (sigla) */
+  paramCode?: string | null;
+  /** O parâmetro vinculado está com erro: a quantidade ficou com o último valor */
+  paramError?: boolean;
   isFirst: boolean;
   isLast: boolean;
 }
@@ -122,7 +126,14 @@ function LineRow({ line: l, budgetId: _budgetId, hasSupplyBdi, readOnly, editing
         )}
       </td>
       <td>{l.unit ?? ""}</td>
-      <td className="num">{isStage ? "" : readOnly || l.auto ? (l.quantity ?? "0").replace(".", ",") : <QuantityCell nodeId={l.id} value={l.quantity ?? "0"} />}</td>
+      <td className="num">
+        {isStage ? "" : l.paramCode ? (
+          <span title={l.paramError ? `Parâmetro ${l.paramCode} com erro na memória de cálculo: ficou o último valor` : `Vinculada ao parâmetro ${l.paramCode} da memória de cálculo`}>
+            {(l.quantity ?? "0").replace(".", ",")}
+            <span className="mono" style={{ marginLeft: 4, fontSize: 11, color: l.paramError ? "var(--danger)" : "var(--muted)" }}>={l.paramCode}</span>
+          </span>
+        ) : readOnly || l.auto ? (l.quantity ?? "0").replace(".", ",") : <QuantityCell nodeId={l.id} value={l.quantity ?? "0"} />}
+      </td>
       <td className="num">{isStage ? "" : brl(l.unitCost)}</td>
       <td className="num">{brl(l.totalCost)}</td>
       <td className="num">{isStage ? "" : brl(l.unitPrice)}</td>

@@ -12,6 +12,7 @@ import { loadBudgetCatalog } from "@/lib/pricing/budget-catalog";
 import { buildAbcReport, type AbcReport } from "@/lib/pricing/abc";
 import { computeBudgetTransport, TRANSPORT_LINE } from "@/lib/pricing/transport";
 import type { Road } from "@/core/transport";
+import { loadMemoryData, type MemoryData } from "@/lib/pricing/memory-data";
 
 export interface ExportLine {
   id: string;
@@ -103,6 +104,8 @@ export interface BudgetExport {
   abc: AbcReport;
   /** Só nas bases SICRO com materiais transportados */
   transport: TransportExport | null;
+  /** Memória de cálculo e especificação de materiais (decisões #80–#83) */
+  memory: Pick<MemoryData, "calcMemoryNote" | "materialsNote" | "rows" | "materials">;
 }
 
 const GROUP_KIND: Record<string, string> = {
@@ -232,6 +235,7 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
     : null;
 
   const abc = await buildAbcReport(prisma, budget.id);
+  const { calcMemoryNote, materialsNote, rows: memoryRows, materials } = await loadMemoryData(prisma, budget.id);
   // SICRO: encargos dos profissionais (P9xxx) que aparecem no orçamento (decisão #70)
   const laborCodes = abc.inputs.map((r) => r.item.code).filter((c) => /^P\d{4}$/.test(c));
   const laborCharges = budget.priceTable.origin === "SICRO" && laborCodes.length
@@ -265,5 +269,6 @@ export async function loadBudgetExport(companyId: string, projectId: string): Pr
       bidderInstructions: budget.bidderInstructions, bidderPremises: budget.bidderPremises, scheduleMonths: budget.scheduleMonths,
     },
     lines, analytic, schedule, abc, transport,
+    memory: { calcMemoryNote, materialsNote, rows: memoryRows, materials },
   };
 }

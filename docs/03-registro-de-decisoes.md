@@ -83,10 +83,14 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 77 | 2026-11-14 | **Equalização: item sem preço recebe o maior preço unitário das demais proponentes** (ou o de referência, se nenhuma cotou); o total "como cotado" continua ao lado | Aprovado pelo Leo · implementado |
 | 78 | 2026-11-14 | **Itens acrescentados pela proponente ficam à parte** (lista própria, fora do equalizado; item repetido também); **quantidade alterada é sinalizada** e o equalizado usa a quantidade do orçamento × preço unitário ofertado, ARRED(…; 2) | Aprovado pelo Leo · implementado |
 | 79 | 2026-11-14 | **Alertas**: preço unitário 30 % acima ou abaixo da mediana das propostas ou da referência; total equalizado abaixo de 75 % do orçado (possível inexequível — Lei 14.133, art. 59, § 4º); prazo acima do máximo e validade abaixo da mínima exigidos (campos do orçamento); total declarado diferente da soma dos itens. Classificação pelo total equalizado. Mapa comparativo também em Excel (resumo, mapa por item com notas, acrescentados) | Aprovado pelo Leo · implementado |
+| 80 | 2026-11-14 | **Memória de cálculo dos quantitativos** (aba "Memória" do orçamento), no modelo arquivado da SQS 211 G: grupos e parâmetros com sigla, descrição, valor, unidade, origem e marcação "estimado — conferir em campo". O valor é digitado ou sai de uma **fórmula com as siglas** (+ − * / ^, parênteses; ARRED, ARREDONDAR.PARA.CIMA/BAIXO, TRUNCAR, MÁXIMO, MÍNIMO, SOMA, ABS, RAIZ, também em inglês; argumentos separados por ";"), calculada pelo app em decimal na ordem das dependências; sigla inexistente, referência circular, divisão por zero e erro de sintaxe ficam apontados no parâmetro e em quem depende dele. Trocar a sigla atualiza as fórmulas que a usam; não se exclui parâmetro usado em fórmula. Conferido com os valores do modelo (183; 348,075; 60,913125; 14,01; 8; 14; 88) | Aprovado pelo Leo · implementado |
+| 81 | 2026-11-14 | **Quantidade vinculada a um parâmetro** (opcional, por serviço): a quantidade acompanha o resultado do parâmetro (4 casas, meio para cima) a cada recálculo; na planilha aparece "=SIGLA" e não se edita à mão; com o parâmetro em erro, fica o último valor e a tela avisa; unidade diferente da do serviço é sinalizada | Aprovado pelo Leo · implementado |
+| 82 | 2026-11-14 | **Especificação mínima de materiais** (na aba Especificações): material, especificação mínima, referências comerciais (ou equivalente técnico), normas e **os serviços da planilha marcados** — o app escreve a numeração (três ou mais seguidos da mesma etapa como intervalo, "3.4 a 3.6") e a mantém certa se a planilha for renumerada. Avisos no alto da memória e da especificação | Aprovado pelo Leo · implementado |
+| 83 | 2026-11-14 | **Abas "Memória de Cálculo" e "Especificação de Materiais" na planilha para proponentes e na planilha orçamentária em Excel**, com as fórmulas do Excel vivas (siglas trocadas pelas células da coluna de valor, funções em inglês, resultado gravado) e os estimados destacados | Aprovado pelo Leo · implementado |
 
 ## Estado do código (2026-11-14)
-- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `6d9c062` no GitHub (público). A comparação das propostas recebidas (#76–#79) está na pasta, **sem commit**.
-- **135 testes**; `tsc` e `eslint` sem erros.
+- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `9052a41` no GitHub (público). A memória de cálculo e a especificação de materiais (#80–#83) estão na pasta, **sem commit**.
+- **140 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
@@ -104,5 +108,4 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 - Importação em processo separado (worker) se a hospedagem escolhida exigir (#47).
 - Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
 - Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.
-- Planilha para proponentes: abas de memória de cálculo (parâmetros com fórmula) e especificação de materiais, como nos modelos arquivados. (A comparação das propostas recebidas foi feita nas #76–#79.)
 - SICRO: cálculo do FIT pelo método de 2025 (#68); encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).

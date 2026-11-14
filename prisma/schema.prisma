@@ -409,6 +409,11 @@ model Budget {
   bidderMaxDays         Int? // prazo máximo de execução exigido (dias)
   bidderMinValidityDays Int? // validade mínima exigida (dias)
   proposals             Proposal[]
+  // Memória de cálculo e especificação de materiais (decisões #80–#83)
+  calcMemoryNote String? // aviso no alto da memória ("quantitativos estimados…")
+  materialsNote  String? // aviso no alto da especificação de materiais
+  calcRows       CalcRow[]
+  materialSpecs  MaterialSpec[]
 
   // SICRO — momento de transporte (decisões #66–#68): DMT padrão por via (km) e FIT
   dmtNatural  Decimal? @db.Decimal(10, 3) // leito natural
@@ -478,6 +483,10 @@ model WbsNode {
   schedule ScheduleEntry[]
 
   proposalItems       ProposalItem[]
+  /// Quantidade vinculada a um parâmetro da memória de cálculo (decisão #81)
+  quantityParamId     String?
+  quantityParam       CalcRow?  @relation("QuantityParam", fields: [quantityParamId], references: [id], onDelete: SetNull)
+  materialSpecItems   MaterialSpecItem[]
 
   @@unique([budgetId, parentId, position])
   @@index([budgetId])
@@ -742,5 +751,61 @@ model ProposalItem {
   totalPrice  Decimal? @db.Decimal(15, 2)
 
   @@index([proposalId])
+  @@index([nodeId])
+}
+
+
+/// Linha da memória de cálculo: grupo (SECTION) ou parâmetro (PARAM) — decisões #80–#81
+model CalcRow {
+  id          String   @id @default(cuid())
+  budgetId    String
+  budget      Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  position    Int
+  /// SECTION | PARAM
+  kind        String
+  /// Sigla (maiúsculas), única no orçamento
+  code        String?
+  description String
+  unit        String?
+  /// Valor digitado (sem fórmula)
+  value       Decimal? @db.Decimal(24, 8)
+  /// Fórmula com as siglas (tem precedência sobre o valor)
+  formula     String?
+  /// Resultado calculado pelo app (valor ou fórmula)
+  result      Decimal? @db.Decimal(24, 8)
+  error       String?
+  /// Origem / fórmula por extenso / referência ao projeto
+  source      String?
+  /// Estimativa — conferir em campo
+  estimated   Boolean  @default(false)
+  linkedNodes WbsNode[] @relation("QuantityParam")
+
+  @@unique([budgetId, code])
+  @@index([budgetId])
+}
+
+/// Especificação mínima de material (decisões #82)
+model MaterialSpec {
+  id            String   @id @default(cuid())
+  budgetId      String
+  budget        Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  position      Int
+  material      String
+  specification String?
+  references    String?
+  standards     String?
+  items         MaterialSpecItem[]
+
+  @@index([budgetId])
+}
+
+/// Serviços da planilha que usam o material
+model MaterialSpecItem {
+  materialSpecId String
+  materialSpec   MaterialSpec @relation(fields: [materialSpecId], references: [id], onDelete: Cascade)
+  nodeId         String
+  node           WbsNode      @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@id([materialSpecId, nodeId])
   @@index([nodeId])
 }

@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import { INPUT_KIND_LABEL, REGIME_LABEL, WORK_TYPE_LABEL, dateBR, refMonth } from "@/lib/format";
 import type { BudgetExport, ExportLine } from "./budget-export";
 import { ROAD_LABEL } from "@/core/transport";
+import { toExcelFormula } from "@/core/calc-memory";
 
 const MONEY = '#,##0.00';
 const QTY = '#,##0.00##';
@@ -387,12 +388,70 @@ function transportSheet(wb: ExcelJS.Workbook, d: BudgetExport) {
   }
 }
 
+/** Memória de cálculo (decisões #80–#81): fórmulas vivas, com as siglas trocadas pelas células da coluna C. */
+function memorySheet(wb: ExcelJS.Workbook, d: BudgetExport) {
+  const m = d.memory;
+  if (!m.rows.length) return;
+  const ws = wb.addWorksheet("Memória de Cálculo", { pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
+  ws.columns = [{ width: 9 }, { width: 58 }, { width: 14 }, { width: 8 }, { width: 70 }];
+  ws.mergeCells(1, 1, 1, 5); ws.getCell(1, 1).value = "MEMÓRIA DE CÁLCULO DOS QUANTITATIVOS"; ws.getCell(1, 1).font = { bold: true, size: 14 };
+  if (m.calcMemoryNote) {
+    ws.mergeCells(2, 1, 2, 5); ws.getCell(2, 1).value = m.calcMemoryNote;
+    ws.getCell(2, 1).alignment = { wrapText: true, vertical: "top" }; ws.getCell(2, 1).font = { bold: true, color: { argb: "FF7A5300" } }; ws.getRow(2).height = 32;
+  }
+  tableHeader(ws, 4, ["Ref.", "Descrição", "Valor", "Und", "Origem / fórmula"]);
+  const first = 5;
+  const cellOf = new Map<string, string>();
+  m.rows.forEach((r, i) => { if (r.kind === "PARAM" && r.code) cellOf.set(r.code, `$C$${first + i}`); });
+  m.rows.forEach((r, i) => {
+    const row = first + i;
+    if (r.kind === "SECTION") {
+      ws.mergeCells(row, 1, row, 5); ws.getCell(row, 1).value = r.description; ws.getCell(row, 1).font = BOLD; ws.getCell(row, 1).fill = STAGE_FILL;
+      return;
+    }
+    ws.getCell(row, 1).value = r.code; ws.getCell(row, 1).font = BOLD;
+    ws.getCell(row, 2).value = r.description; ws.getCell(row, 2).alignment = { wrapText: true, vertical: "top" };
+    const c = ws.getCell(row, 3);
+    const excel = r.formula ? toExcelFormula(r.formula, (code) => cellOf.get(code) ?? null) : null;
+    if (r.formula && excel) c.value = { formula: excel, result: r.result !== null ? Number(r.result) : undefined };
+    else if (r.formula) c.value = r.result !== null ? Number(r.result) : `erro: ${r.error ?? "fórmula inválida"}`;
+    else c.value = r.value !== null ? Number(r.value) : null;
+    c.numFmt = '#,##0.00####';
+    if (r.estimated) c.fill = INPUT_FILL;
+    ws.getCell(row, 4).value = r.unit ?? "";
+    const origin = [r.source, r.formula && !r.source ? `= ${r.formula}` : null, r.estimated ? "ESTIMADO — conferir em campo" : null].filter(Boolean).join(" · ");
+    ws.getCell(row, 5).value = origin; ws.getCell(row, 5).alignment = { wrapText: true, vertical: "top" };
+  });
+}
+
+/** Especificação mínima de materiais (decisão #82). */
+function materialsSheet(wb: ExcelJS.Workbook, d: BudgetExport) {
+  const m = d.memory;
+  if (!m.materials.length) return;
+  const ws = wb.addWorksheet("Especificação de Materiais", { pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
+  ws.columns = [{ width: 30 }, { width: 60 }, { width: 46 }, { width: 22 }, { width: 18 }];
+  ws.mergeCells(1, 1, 1, 5); ws.getCell(1, 1).value = "ESPECIFICAÇÃO MÍNIMA DE MATERIAIS"; ws.getCell(1, 1).font = { bold: true, size: 14 };
+  if (m.materialsNote) {
+    ws.mergeCells(2, 1, 2, 5); ws.getCell(2, 1).value = m.materialsNote;
+    ws.getCell(2, 1).alignment = { wrapText: true, vertical: "top" }; ws.getCell(2, 1).font = { bold: true, color: { argb: "FF7A5300" } }; ws.getRow(2).height = 32;
+  }
+  tableHeader(ws, 4, ["Material", "Especificação mínima", "Referências comerciais (ou equivalente técnico)", "Normas", "Itens da planilha"]);
+  m.materials.forEach((x, i) => {
+    const r = 5 + i;
+    ws.getRow(r).values = [x.material, x.specification ?? "", x.references ?? "", x.standards ?? "", x.items];
+    ws.getCell(r, 1).font = BOLD;
+    for (let c = 1; c <= 5; c++) ws.getCell(r, c).alignment = { wrapText: true, vertical: "top" };
+  });
+}
+
 export async function buildBudgetWorkbook(d: BudgetExport): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = d.company.name;
   wb.created = new Date();
   sintetica(wb, d);
   analitica(wb, d);
+  memorySheet(wb, d);
+  materialsSheet(wb, d);
   bdiSheet(wb, d);
   transportSheet(wb, d);
   cronograma(wb, d);
@@ -472,6 +531,8 @@ export async function buildBidderWorkbook(d: BudgetExport): Promise<Buffer> {
   // Protege a estrutura; a proponente edita só o que está em amarelo (sem senha)
   await ws.protect("", { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatRows: true });
 
+  memorySheet(wb, d);
+  materialsSheet(wb, d);
   for (const [name, text] of [["Instruções", d.budget.bidderInstructions], ["Premissas", d.budget.bidderPremises]] as const) {
     if (!text?.trim()) continue;
     const w = wb.addWorksheet(name);

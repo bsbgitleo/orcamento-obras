@@ -8,6 +8,7 @@ import { buildTree, computeBudget, type BudgetNodeInput, type BudgetResult } fro
 import { ownCompositionKey } from "@/core/own-composition";
 import { loadBudgetCatalog } from "./budget-catalog";
 import { syncTransportNodes } from "./transport";
+import { syncCalcMemory } from "./calc-memory";
 
 /** Catalog key of the composition a service uses (official id or own key). */
 export function serviceCompositionKey(n: { compositionId: string | null; ownCompositionId: string | null }): string | null {
@@ -15,6 +16,8 @@ export function serviceCompositionKey(n: { compositionId: string | null; ownComp
 }
 
 export async function recalculateBudget(prisma: PrismaClient, budgetId: string): Promise<BudgetResult> {
+  // Quantidades vinculadas à memória de cálculo (decisão #81), antes do transporte, que depende delas
+  await syncCalcMemory(prisma, budgetId);
   // SICRO: a etapa "Transportes" segue as quantidades e as DMTs (decisão #67)
   const table = await prisma.budget.findUniqueOrThrow({ where: { id: budgetId }, select: { priceTable: { select: { origin: true } } } });
   if (table.priceTable.origin === "SICRO") await syncTransportNodes(prisma, budgetId);

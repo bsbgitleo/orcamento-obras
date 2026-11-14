@@ -22,7 +22,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
       client: true,
       budgets: {
         orderBy: { revision: "desc" }, take: 1,
-        include: { priceTable: true, bdi: true, supplyBdi: true, socialCharges: true, transportDmts: true, nodes: { include: { composition: { select: { code: true } }, ownComposition: { select: { code: true } } } } },
+        include: { priceTable: true, bdi: true, supplyBdi: true, socialCharges: true, transportDmts: true, nodes: { include: { composition: { select: { code: true } }, ownComposition: { select: { code: true } }, quantityParam: { select: { code: true, error: true } } } } },
       },
     },
   });
@@ -40,7 +40,7 @@ export default async function BudgetPage(props: PageProps<"/orcamentos/[id]">) {
         id: n.id, parentId: n.parentId, code: n.code, level, kind: n.kind, description: n.description, unit: n.unit,
         quantity: n.quantity?.toString() ?? null, unitCost: n.unitCost?.toString() ?? null, totalCost: n.totalCost?.toString() ?? null,
         unitPrice: n.unitPrice?.toString() ?? null, totalPrice: n.totalPrice?.toString() ?? null,
-        isSupplyItem: n.isSupplyItem, compositionCode: n.ownComposition?.code ?? n.composition?.code ?? null, ownComposition: !!n.ownCompositionId, auto: !!n.autoKind, isFirst: i === 0, isLast: i === list.length - 1,
+        isSupplyItem: n.isSupplyItem, compositionCode: n.ownComposition?.code ?? n.composition?.code ?? null, ownComposition: !!n.ownCompositionId, auto: !!n.autoKind, paramCode: n.quantityParam?.code ?? null, paramError: !!n.quantityParam?.error, isFirst: i === 0, isLast: i === list.length - 1,
       });
       if (n.kind === "STAGE") walk(n.id, level + 1);
     });

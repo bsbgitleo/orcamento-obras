@@ -37,6 +37,7 @@ const data: BudgetExport = {
   schedule: null,
   abc: { services: [], inputs: [], servicesTotal: new Decimal(0), inputsTotal: new Decimal(0), directCost: new Decimal(1918.7), skipped: 1 },
   transport: null,
+  memory: { calcMemoryNote: null, materialsNote: null, rows: [], materials: [] },
 };
 
 async function read(buf: Buffer) {

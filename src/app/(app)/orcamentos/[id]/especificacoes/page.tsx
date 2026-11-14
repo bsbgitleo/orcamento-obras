@@ -1,6 +1,7 @@
 // src/app/(app)/orcamentos/[id]/especificacoes/page.tsx
 // Especificação técnica, critério de medição e exigência de marca por serviço
-// (vão para a planilha das proponentes — decisão #60).
+// (vão para a planilha das proponentes — decisão #60) e especificação mínima de
+// materiais (decisão #82).
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require";
@@ -8,6 +9,8 @@ import { canEdit } from "@/lib/auth/roles";
 import { BudgetTabs } from "@/components/budget-tabs";
 import { isSicroProject } from "@/lib/budget-origin";
 import { ServiceSpecForm } from "@/components/export-forms";
+import { loadMemoryData } from "@/lib/pricing/memory-data";
+import { MaterialSpecForm, MaterialSpecTools, NoteForm } from "@/components/calc-memory";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +28,9 @@ export default async function SpecsPage(props: PageProps<"/orcamentos/[id]/espec
   const ordered: typeof nodes = [];
   const walk = (p: string | null) => { for (const n of (byParent.get(p) ?? []).sort((a, b) => a.position - b.position)) { ordered.push(n); if (n.kind === "STAGE") walk(n.id); } };
   walk(null);
+  const mem = await loadMemoryData(prisma, project.budgets[0].id);
+  const serviceOptions = mem.tree.filter((t) => !t.auto).map((t) => ({ id: t.id, code: t.code, description: t.description, stage: t.stage, level: t.level }));
+  const readOnly = !canEdit(role);
 
   return (
     <>
@@ -50,6 +56,33 @@ export default async function SpecsPage(props: PageProps<"/orcamentos/[id]/espec
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Especificação mínima de materiais</h2>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+          Material, especificação mínima, referências comerciais (ou equivalente técnico), normas e os itens da planilha que o usam.
+          Vai para a planilha das proponentes e para a planilha orçamentária em Excel.
+        </p>
+        <NoteForm projectId={project.id} field="materialsNote" value={mem.materialsNote} readOnly={readOnly} label="Aviso no alto da especificação"
+          placeholder="Referências comerciais são indicativas; produto equivalente só será aceito com ficha técnica e aprovação da fiscalização." />
+        {mem.materials.length > 0 && (
+          <div style={{ overflowX: "auto", marginTop: 12 }}>
+            <table className="list" style={{ fontSize: 13 }}>
+              <thead><tr><th>Material</th><th>Especificação mínima</th><th>Referências comerciais</th><th>Normas</th><th>Itens da planilha</th>{!readOnly && <th />}</tr></thead>
+              <tbody>
+                {mem.materials.map((m, k) => (
+                  <tr key={m.id}>
+                    <td><strong>{m.material}</strong></td><td>{m.specification ?? "—"}</td><td>{m.references ?? "—"}</td><td>{m.standards ?? "—"}</td>
+                    <td className="mono" style={{ fontSize: 12 }}>{m.items || <span className="muted">nenhum</span>}</td>
+                    {!readOnly && <td style={{ whiteSpace: "nowrap" }}><MaterialSpecTools projectId={project.id} spec={m} services={serviceOptions} first={k === 0} last={k === mem.materials.length - 1} /></td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!readOnly && <div style={{ marginTop: 12 }}><h3 style={{ margin: "0 0 6px" }}>Incluir material</h3><MaterialSpecForm projectId={project.id} spec={null} services={serviceOptions} /></div>}
       </div>
     </>
   );

@@ -115,6 +115,14 @@ serviço: código da base ou de composição própria → vinculado; sem código
 preço (com BDI, o app desconta o BDI do orçamento); sem preço → "sem custo". Reconhece a exportação do próprio app e o
 modelo de homogeneização das proponentes.
 
+## Memória de cálculo e especificação de materiais
+
+Na aba **Memória** do orçamento, registre os parâmetros dos quantitativos (sigla, descrição, valor, unidade, origem) em
+grupos. O valor pode ser uma fórmula com as siglas dos outros parâmetros (ex.: `L * HT * NE`,
+`ARREDONDAR.PARA.CIMA(L / CB; 0) * NE`), que o app calcula e confere. A quantidade de um serviço pode acompanhar um
+parâmetro. A especificação mínima de materiais fica na aba **Especificações**, com os itens da planilha que usam cada
+material. As duas vão para a planilha das proponentes e para a planilha orçamentária em Excel, com fórmulas vivas.
+
 ## Comparação das propostas recebidas
 
 Na aba **Propostas** do orçamento, envie a proposta de cada proponente em .xlsx (por exemplo, a planilha para
@@ -126,7 +134,7 @@ comparativo sai também em Excel.
 
 ## Exportações
 
-Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, BDI e encargos, transporte no SICRO, cronograma,
+Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, memória de cálculo, materiais, BDI e encargos, transporte no SICRO, cronograma,
 curvas ABC — valores iguais aos do app), **proposta comercial** em página A4 (Imprimir → Salvar como PDF) e
 **planilha para proponentes** (sem preços, com especificação, critério de medição e campos da proponente em amarelo).
 A especificação de cada serviço fica na aba **Especificações**; os dados da empresa, em Empresa → Dados da empresa.

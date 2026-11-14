@@ -143,6 +143,7 @@ export async function updateQuantity(nodeId: string, _prev: ActionState, fd: For
   if (!r.ok) return r.state;
   const node = await ownNode(nodeId);
   if (node.kind !== "SERVICE") return { status: "error", message: "Só serviços têm quantidade." };
+  if (node.quantityParamId) return { status: "error", message: "Quantidade vinculada à memória de cálculo: altere o parâmetro ou desfaça o vínculo na aba Memória." };
   await prisma.wbsNode.update({ where: { id: nodeId }, data: { quantity: r.data.quantity } });
   return finish(node.budgetId);
 }
