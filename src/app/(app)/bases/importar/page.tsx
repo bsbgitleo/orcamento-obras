@@ -31,7 +31,7 @@ export default async function ImportPage() {
   return (
     <>
       <div className="toolbar">
-        <h1 style={{ margin: 0 }}>Importar base oficial — SINAPI</h1>
+        <h1 style={{ margin: 0 }}>Importar base oficial — SINAPI ou SICRO</h1>
         <Link className="btn secondary" href="/bases">Voltar</Link>
       </div>
       <SinapiImportForm ufs={UFS} defaultUfs={["DF"]} />

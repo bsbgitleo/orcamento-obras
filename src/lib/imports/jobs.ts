@@ -12,6 +12,9 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildSinapiPackage, type SinapiPackage } from "@/import/sinapi/classify";
 import { runSinapiImport } from "@/import/sinapi/run-import";
+import { classifySicroFiles } from "@/import/sicro/files";
+import { runSicroImport } from "@/import/sicro/run-import";
+import type { SicroFiles, SicroRegime } from "@/import/sicro/types";
 import type { SinapiRegime } from "@/import/sinapi/types";
 
 export const IMPORT_DIR = process.env.IMPORT_DIR ?? path.join(process.cwd(), ".data", "imports");
@@ -50,42 +53,72 @@ function safeName(name: string, i: number): string {
   return `${String(i).padStart(2, "0")}_${base || "arquivo"}`;
 }
 
+export type UploadPackage =
+  | { kind: "SINAPI"; pkg: SinapiPackage }
+  | { kind: "SICRO"; files: SicroFiles; uf: string | null; ignored: number };
+
+/** ZIP entry names: UTF-8 when valid, else Windows-1252 (Windows/Numbers ZIPs). */
+function decodeZipName(bytes: string[] | Uint8Array | Buffer): string {
+  const arr = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes as unknown as number[]);
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(arr); } catch { return new TextDecoder("windows-1252").decode(arr); }
+}
+
 /**
- * Saves the uploaded files (xlsx or the Caixa ZIP) to the job folder and
- * classifies them by sheet names. Throws ImportRequestError for bad input.
+ * Saves the uploaded files (xlsx or a ZIP) to the job folder and recognises
+ * the package: DNIT reports (SICRO) by their names, SINAPI workbooks by their
+ * sheets. Throws ImportRequestError for bad input.
  */
-export async function saveUpload(jobId: string, files: File[]): Promise<{ dir: string; pkg: SinapiPackage }> {
+export async function saveUpload(jobId: string, files: File[]): Promise<{ dir: string; upload: UploadPackage }> {
   const dir = path.join(IMPORT_DIR, jobId);
   await mkdir(dir, { recursive: true });
   const xlsxPaths: string[] = [];
+  const originalNames: string[] = [];
   let i = 0;
   for (const f of files) {
     const buf = Buffer.from(await f.arrayBuffer());
     const lower = f.name.toLowerCase();
     if (lower.endsWith(".zip")) {
       let zip: JSZip;
-      try { zip = await JSZip.loadAsync(buf); } catch { throw new ImportRequestError(`"${f.name}" não é um ZIP válido.`); }
+      try { zip = await JSZip.loadAsync(buf, { decodeFileName: decodeZipName }); } catch { throw new ImportRequestError(`"${f.name}" não é um ZIP válido.`); }
       for (const entry of Object.values(zip.files)) {
-        // Entry names in the Caixa ZIP come with broken accents; the kind is decided by the sheets
         if (entry.dir || !entry.name.toLowerCase().endsWith(".xlsx") || entry.name.includes("__MACOSX")) continue;
         const p = path.join(dir, safeName(path.basename(entry.name), ++i));
         await writeFile(p, await entry.async("nodebuffer"));
         xlsxPaths.push(p);
+        originalNames.push(path.basename(entry.name));
       }
     } else if (lower.endsWith(".xlsx")) {
       const p = path.join(dir, safeName(f.name, ++i));
       await writeFile(p, buf);
       xlsxPaths.push(p);
+      originalNames.push(f.name);
+    } else if (lower.endsWith(".pdf")) {
+      continue; // o DNIT publica cada relatório também em PDF: ignorado
     } else {
-      throw new ImportRequestError(`"${f.name}": envie arquivos .xlsx ou o .zip da Caixa.`);
+      throw new ImportRequestError(`"${f.name}": envie arquivos .xlsx ou um .zip.`);
     }
   }
+
+  // SICRO (DNIT): relatórios reconhecidos pelo nome
+  const sicro = classifySicroFiles(xlsxPaths, originalNames);
+  if (sicro.analytic) {
+    if (!sicro.materials) throw new ImportRequestError("Do SICRO, falta o Relatório Sintético de Materiais.");
+    if (!sicro.labor?.NAO_DESONERADO && !sicro.labor?.DESONERADO) throw new ImportRequestError("Do SICRO, faltam os Relatórios Sintéticos de Mão de Obra.");
+    return {
+      dir,
+      upload: {
+        kind: "SICRO", uf: sicro.uf ?? null, ignored: sicro.ignored.length,
+        files: { analytic: sicro.analytic, materials: sicro.materials, syntheticCompositions: sicro.syntheticCompositions, priceOrigin: sicro.priceOrigin, labor: sicro.labor ?? {}, equipment: sicro.equipment ?? {} },
+      },
+    };
+  }
+
   let pkg: SinapiPackage;
   try { pkg = await buildSinapiPackage(xlsxPaths); } catch (e) { throw new ImportRequestError(e instanceof Error ? e.message : String(e)); }
   if (!pkg.reference && !pkg.maintenance) {
-    throw new ImportRequestError("Nenhum arquivo reconhecido. Envie a SINAPI_Referência (com ou sem a SINAPI_mao_de_obra) e/ou a SINAPI_Manutenções, ou o ZIP da Caixa com elas.");
+    throw new ImportRequestError("Nenhum arquivo reconhecido. SINAPI: a SINAPI_Referência (com ou sem a SINAPI_mao_de_obra) e/ou a SINAPI_Manutenções, ou o ZIP da Caixa. SICRO: os relatórios .xlsx do DNIT (Analítico e Sintético de Composições, Sintéticos de Materiais, Mão de Obra e Equipamentos).");
   }
-  return { dir, pkg };
+  return { dir, upload: { kind: "SINAPI", pkg } };
 }
 
 function jobLogger(jobId: string) {
@@ -110,7 +143,9 @@ function jobLogger(jobId: string) {
   };
 }
 
-export async function runImportJob(jobId: string, dir: string, pkg: SinapiPackage): Promise<void> {
+export async function runImportJob(jobId: string, dir: string, upload: UploadPackage): Promise<void> {
+  if (upload.kind === "SICRO") return runSicroJob(jobId, dir, upload);
+  const pkg = upload.pkg;
   activeJobs.add(jobId);
   const logger = jobLogger(jobId);
   try {
@@ -148,4 +183,39 @@ export async function runImportJob(jobId: string, dir: string, pkg: SinapiPackag
 export async function cleanupUploads(): Promise<void> {
   const names = await readdir(IMPORT_DIR).catch(() => [] as string[]);
   for (const n of names) if (!activeJobs.has(n)) await rm(path.join(IMPORT_DIR, n), { recursive: true, force: true }).catch(() => {});
+}
+
+async function runSicroJob(jobId: string, dir: string, upload: Extract<UploadPackage, { kind: "SICRO" }>): Promise<void> {
+  activeJobs.add(jobId);
+  const logger = jobLogger(jobId);
+  try {
+    const job = await prisma.importJob.update({ where: { id: jobId }, data: { status: "RUNNING", startedAt: new Date() } });
+    const f = upload.files;
+    const found = [
+      "Analítico de Composições", f.syntheticCompositions && "Sintético de Composições", "Materiais",
+      f.labor.NAO_DESONERADO && "Mão de Obra", f.labor.DESONERADO && "Mão de Obra com desoneração",
+      f.equipment.NAO_DESONERADO && "Equipamentos", f.equipment.DESONERADO && "Equipamentos com desoneração", f.priceOrigin && "Origem de Preços",
+    ].filter(Boolean).join(", ");
+    logger.log(`SICRO ${job.ufs[0]} — relatórios reconhecidos: ${found}${upload.ignored ? ` (${upload.ignored} ignorado(s))` : ""}.`);
+    const regimes = (job.regimes as string[]).filter((r): r is SicroRegime => r === "NAO_DESONERADO" || r === "DESONERADO");
+    const result = await runSicroImport(prisma, { files: f, uf: job.ufs[0], regimes }, logger.log);
+    const problems = result.tables.filter((t) => t.status !== "IMPORTED").length;
+    logger.log(problems ? `Concluída com ${problems} problema(s).` : "Concluída.");
+    await logger.close();
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: {
+        status: problems === result.tables.length ? "FAILED" : "DONE", finishedAt: new Date(), result: result as unknown as Prisma.InputJsonValue,
+        error: problems ? `${problems} regime(s) não importado(s); veja o registro.` : null,
+      },
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    logger.log(`ERRO: ${message}`);
+    await logger.close();
+    await prisma.importJob.update({ where: { id: jobId }, data: { status: "FAILED", finishedAt: new Date(), error: message } }).catch(() => {});
+  } finally {
+    activeJobs.delete(jobId);
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
 }

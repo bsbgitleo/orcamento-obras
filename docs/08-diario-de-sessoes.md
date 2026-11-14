@@ -94,3 +94,5 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 - Respostas do Leo: itens em t·km como o DNIT; DMT padrão + ajuste por material; FIT opcional, padrão 1 (#66–#68).
 - Feito (sem commit): `src/core/transport.ts` com testes; migração `20261114040000_transport`; sincronização da etapa "Transportes" no recálculo; aba Transporte; linhas automáticas protegidas na EAP.
 - Teste no navegador (ORC-0003): 5 materiais, inclusive os do microconcreto auxiliar; DMT pavimentada 50 km e brita a 35 km (+3 km de revestimento primário) → 4 itens de transporte (ex.: guindauto 0,076 t × 50 km = 3,8 t·km × R$ 1,97); mudar a quantidade do serviço de 2 para 4 levou o item a 7,6 t·km sozinho.
+- Commit e envio do transporte (`abe07b3`).
+- Importação do SICRO pela tela (#69): os 12 relatórios do DF + um PDF enviados pela tela "Importar base oficial"; reconhecidos pelo nome, UF do nome; sem desoneração bloqueada (orçamento de teste), com desoneração importada em 9 s. O PostgreSQL tinha parado (Mac reiniciado) e foi religado.

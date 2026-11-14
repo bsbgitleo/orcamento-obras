@@ -82,7 +82,8 @@ npm run sinapi:check -- DF 2026-10 NAO_DESONERADO   # recalcula tudo e compara c
 
 ## Importando o SICRO (DNIT)
 
-Baixe no site do DNIT os relatórios da UF/mês em .xlsx (Analítico e Sintético de Composições, Sintéticos de Materiais,
+Pela tela (administrador da plataforma): Tabelas importadas → **Importar base oficial**, enviando os relatórios .xlsx
+do DNIT de uma UF (soltos ou num ZIP). Pela linha de comando: baixe no site do DNIT os relatórios da UF/mês em .xlsx (Analítico e Sintético de Composições, Sintéticos de Materiais,
 Mão de Obra e Equipamentos — com e sem desoneração — e, opcionalmente, Origem de Preços) numa pasta e rode:
 
 ```bash

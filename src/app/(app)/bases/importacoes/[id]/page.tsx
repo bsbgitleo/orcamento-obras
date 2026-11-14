@@ -25,7 +25,7 @@ export default async function ImportJobPage(props: PageProps<"/bases/importacoes
   return (
     <>
       <div className="toolbar">
-        <h1 style={{ margin: 0 }}>Importação SINAPI <span className={`badge ${badge}`}>{IMPORT_STATUS_LABEL[job.status]}{running ? "…" : ""}</span></h1>
+        <h1 style={{ margin: 0 }}>Importação {job.origin} <span className={`badge ${badge}`}>{IMPORT_STATUS_LABEL[job.status]}{running ? "…" : ""}</span></h1>
         <Link className="btn secondary" href="/bases">Tabelas importadas</Link>
       </div>
 
@@ -56,7 +56,7 @@ export default async function ImportJobPage(props: PageProps<"/bases/importacoes
                 <td className="num">{t.inputs?.toLocaleString("pt-BR") ?? "—"}</td>
                 <td className="num">{t.compositions?.toLocaleString("pt-BR") ?? "—"}</td>
                 <td className="num">{t.withoutCost?.toLocaleString("pt-BR") ?? "—"}</td>
-                <td>{t.mismatches === undefined ? "—" : t.mismatches === 0 ? "todos os custos iguais" : <span className="badge danger">{t.mismatches} diferente(s)</span>}</td>
+                <td>{t.mismatches === undefined ? (t.status === "IMPORTED" ? <span className="muted">sem custo publicado</span> : "—") : t.mismatches === 0 ? "todos os custos iguais" : <span className="badge danger">{t.mismatches} diferente(s)</span>}</td>
                 <td className="num">{t.seconds === undefined ? "—" : `${t.seconds.toLocaleString("pt-BR")} s`}</td>
               </tr>
             ))}

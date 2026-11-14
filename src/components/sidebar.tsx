@@ -11,7 +11,7 @@ const groups: { title: string; items: { href: string; label: string; manager?: b
   ] },
   { title: "Base de preços", items: [
     { href: "/bases", label: "Tabelas importadas" },
-    { href: "/bases/importar", label: "Importar SINAPI", platformAdmin: true },
+    { href: "/bases/importar", label: "Importar base oficial", platformAdmin: true },
   ] },
   { title: "Base própria", items: [
     { href: "/composicoes-proprias", label: "Composições próprias" },

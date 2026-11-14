@@ -72,10 +72,11 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 66 | 2026-11-14 | **Momento de transporte do SICRO como o DNIT faz** (Memória de cálculo de transportes, DNIT/TO 2018, tabelas 5 e 6): peso do material = quantidade do grupo F (t por unidade) × quantidade do serviço, **atravessando as atividades auxiliares** (não o tempo fixo); momento (t·km) = peso × DMT de cada via (leito natural, revestimento primário, pavimentada), com 4 casas por material e serviço. DMT padrão do orçamento por via + **ajuste por material** (com nota de origem: pedreira, jazida…) | **Aprovado pelo Leo** · implementado |
 | 67 | 2026-11-14 | **Transporte como itens em t·km**: os momentos são somados por composição de transporte (ex.: 5914479) e lançados numa etapa "Transportes" no fim da EAP, **gerada e mantida pelo app** a cada recálculo (quantidade = t·km; custo = composição de transporte da base). Linhas marcadas "automático" (`WbsNode.autoKind`), sem edição manual. Sem DMT informada, nada é gerado e os serviços seguem "sem transporte" | **Aprovado pelo Leo** · implementado |
 | 68 | 2026-11-14 | **FIT** como campo opcional do orçamento (padrão 1,00), informado pelo usuário e aplicado só à DMT pavimentada. A fórmula do FIT de 2025 (VMD, trechos urbanos) só foi encontrada em site de terceiro; calcular no app fica para depois de conferir o Manual do DNIT, Vol. 05 | **Aprovado pelo Leo** · implementado |
+| 69 | 2026-11-14 | **Importação do SICRO pela tela** (completa a #34 para o SICRO): na mesma tela "Importar base oficial", o administrador envia os relatórios .xlsx do DNIT soltos ou num ZIP (PDFs ignorados). Reconhecimento pelo nome, tolerante a acentos perdidos ou trocados (nomes de ZIP decodificados em UTF-8 ou Windows-1252); a UF vem do nome ("DF 07-2026 …") ou, sem ela, da única UF marcada; regimes sem e com desoneração. Na base com desoneração o resultado mostra "sem custo publicado", porque o DNIT não publica esse custo | Aprovado (proposto pelo Claude) · implementado |
 
 ## Estado do código (2026-11-14)
-- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `8051c14` no GitHub (público). O momento de transporte (#66–#68) está na pasta, **sem commit**.
-- **118 testes**; `tsc` e `eslint` sem erros.
+- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `abe07b3` no GitHub (público). A importação do SICRO pela tela (#69) está na pasta, **sem commit**.
+- **119 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
@@ -94,4 +95,4 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 - Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
 - Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.
 - Planilha para proponentes: abas de memória de cálculo (parâmetros com fórmula) e especificação de materiais, como nos modelos arquivados; comparação das propostas recebidas.
-- SICRO: importação pela tela; cálculo do FIT pelo método de 2025 (#68); encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).
+- SICRO: cálculo do FIT pelo método de 2025 (#68); encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).

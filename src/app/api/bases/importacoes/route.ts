@@ -1,6 +1,6 @@
 // src/app/api/bases/importacoes/route.ts
 // POST multipart/form-data: files (xlsx or the Caixa ZIP), ufs[], regimes[].
-// Only the platform administrator (decisão #45). Starts the import in the
+// Only the platform administrator (decisão #45). SINAPI (Caixa) or SICRO (DNIT). Starts the import in the
 // background and answers with the job id; the page /bases/importacoes/<id>
 // shows the progress. This path is excluded from src/proxy.ts so the upload
 // body is not buffered/truncated by the proxy.
@@ -44,18 +44,31 @@ export async function POST(request: Request) {
   const jobId = createId();
   activeJobs.add(jobId); // reserved before anything else, so reconcileStaleJobs() leaves it alone
   try {
-    const { dir, pkg } = await saveUpload(jobId, files);
-    if (pkg.reference && (!ufs.length || !regimes.length)) {
-      throw new ImportRequestError("Escolha ao menos uma UF e um regime para importar a SINAPI_Referência.");
+    const { dir, upload } = await saveUpload(jobId, files);
+    if (upload.kind === "SICRO") {
+      // UF pelo nome dos relatórios ("DF 07-2026 …"); sem isso, a única UF marcada
+      const uf = upload.uf ?? (ufs.length === 1 ? ufs[0] : null);
+      if (!uf) throw new ImportRequestError("Não deu para saber a UF pelos nomes dos relatórios do SICRO: marque só a UF deles.");
+      const sicroRegimes = regimes.filter((r) => r === "NAO_DESONERADO" || r === "DESONERADO");
+      if (!sicroRegimes.length) throw new ImportRequestError("Para o SICRO, marque sem e/ou com desoneração (não há regime sem encargos).");
+      const missing = sicroRegimes.filter((r) => !upload.files.labor[r as "NAO_DESONERADO"] || !upload.files.equipment[r as "NAO_DESONERADO"]);
+      if (missing.length) throw new ImportRequestError(`Faltam os sintéticos de mão de obra e de equipamentos ${missing.map((r) => (r === "DESONERADO" ? "com desoneração" : "sem desoneração")).join(" e ")}.`);
+      upload.uf = uf;
+      await prisma.importJob.create({ data: { id: jobId, origin: "SICRO", createdById: ctx.user.id, ufs: [uf], regimes: sicroRegimes as SinapiRegime[], fileNames: files.map((f) => f.name) } });
+    } else {
+      const pkg = upload.pkg;
+      if (pkg.reference && (!ufs.length || !regimes.length)) {
+        throw new ImportRequestError("Escolha ao menos uma UF e um regime para importar a SINAPI_Referência.");
+      }
+      await prisma.importJob.create({
+        data: {
+          id: jobId, origin: "SINAPI", createdById: ctx.user.id,
+          ufs: pkg.reference ? ufs : [], regimes: pkg.reference ? (regimes as SinapiRegime[]) : [],
+          fileNames: files.map((f) => f.name),
+        },
+      });
     }
-    await prisma.importJob.create({
-      data: {
-        id: jobId, origin: "SINAPI", createdById: ctx.user.id,
-        ufs: pkg.reference ? ufs : [], regimes: pkg.reference ? (regimes as SinapiRegime[]) : [],
-        fileNames: files.map((f) => f.name),
-      },
-    });
-    after(() => runImportJob(jobId, dir, pkg));
+    after(() => runImportJob(jobId, dir, upload));
     return NextResponse.json({ id: jobId });
   } catch (e) {
     activeJobs.delete(jobId);

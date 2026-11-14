@@ -55,7 +55,9 @@ export async function runSicroImport(
       }, (m) => log(`   ${m}`));
       log(`   Calculando o custo das ${loaded.compositions} composições…`);
       const cached = await cacheCompositionCosts(prisma, loaded.priceTableId);
-      Object.assign(outcome, { status: "IMPORTED", inputs: loaded.inputs, compositions: loaded.compositions, withoutCost: cached.incomplete, mismatches: cached.mismatches.length } satisfies Partial<TableOutcome>);
+      Object.assign(outcome, { status: "IMPORTED", inputs: loaded.inputs, compositions: loaded.compositions, withoutCost: cached.incomplete,
+        // Com desoneração o DNIT não publica o custo das composições: não há com o que comparar
+        mismatches: regime === "NAO_DESONERADO" ? cached.mismatches.length : undefined } satisfies Partial<TableOutcome>);
       log(`   OK: ${loaded.inputs} insumos, ${loaded.compositions} composições (${cached.incomplete} sem custo)` +
         (loaded.unresolvedItems ? `, ${loaded.unresolvedItems} itens sem vínculo` : "") + "; " +
         (regime === "NAO_DESONERADO"

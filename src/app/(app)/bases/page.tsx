@@ -32,11 +32,11 @@ export default async function PriceTablesPage() {
     <>
       <div className="toolbar">
         <h1 style={{ margin: 0 }}>Tabelas de preço importadas</h1>
-        {isAdmin && <Link className="btn" href="/bases/importar">Importar SINAPI</Link>}
+        {isAdmin && <Link className="btn" href="/bases/importar">Importar base oficial</Link>}
       </div>
       {tables.length === 0 ? (
         <div className="empty">
-          Nenhuma tabela. {isAdmin ? <>Use <Link href="/bases/importar">Importar SINAPI</Link> com o ZIP baixado no site da Caixa.</> : "O administrador da plataforma ainda não importou as bases oficiais."}
+          Nenhuma tabela. {isAdmin ? <>Use <Link href="/bases/importar">Importar base oficial</Link> com o ZIP da Caixa (SINAPI) ou os relatórios .xlsx do DNIT (SICRO).</> : "O administrador da plataforma ainda não importou as bases oficiais."}
         </div>
       ) : (
         <table className="list">
@@ -63,12 +63,6 @@ export default async function PriceTablesPage() {
           : <>Manutenções do SINAPI ainda não importadas: os orçamentos não recebem alerta de composições desativadas ou alteradas.</>}
       </p>
 
-      {isAdmin && (
-        <p className="muted" style={{ fontSize: 13 }}>
-          SICRO (DNIT): por enquanto a importação é pela linha de comando, com a pasta dos relatórios .xlsx da UF:
-          <code> npm run sicro:import -- --dir &quot;pasta&quot;</code>.
-        </p>
-      )}
 
       {isAdmin && jobs.length > 0 && (
         <>
