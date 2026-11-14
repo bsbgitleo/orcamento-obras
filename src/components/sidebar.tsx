@@ -23,6 +23,7 @@ const groups: { title: string; items: { href: string; label: string; manager?: b
     { href: "/encargos", label: "Encargos sociais" },
   ] },
   { title: "Empresa", items: [
+    { href: "/empresa/dados", label: "Dados da empresa" },
     { href: "/empresa/usuarios", label: "Usuários", manager: true },
     { href: "/conta/senha", label: "Minha senha" },
   ] },

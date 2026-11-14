@@ -10,6 +10,8 @@ export function BudgetTabs({ projectId }: { projectId: string }) {
     { href: base, label: "Planilha" },
     { href: `${base}/curva-abc`, label: "Curva ABC" },
     { href: `${base}/cronograma`, label: "Cronograma" },
+    { href: `${base}/especificacoes`, label: "Especificações" },
+    { href: `${base}/exportar`, label: "Exportar" },
   ];
   return (
     <nav className="tabs">

@@ -95,6 +95,13 @@ produção**; acréscimos percentuais dentro dos grupos; auxiliares e tempo fixo
 O momento de transporte (grupo F) depende da DMT do projeto e ainda não é calculado: esses serviços aparecem
 "sem transporte", com o custo igual ao publicado.
 
+## Exportações
+
+Na aba **Exportar** do orçamento: planilha orçamentária em Excel (sintética, analítica, BDI e encargos, cronograma,
+curvas ABC — valores iguais aos do app), **proposta comercial** em página A4 (Imprimir → Salvar como PDF) e
+**planilha para proponentes** (sem preços, com especificação, critério de medição e campos da proponente em amarelo).
+A especificação de cada serviço fica na aba **Especificações**; os dados da empresa, em Empresa → Dados da empresa.
+
 ## Base própria
 
 Composições e insumos da empresa (menu **Base própria**). Os itens oficiais de uma composição própria ficam guardados

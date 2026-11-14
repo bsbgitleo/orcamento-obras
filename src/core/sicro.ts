@@ -86,5 +86,9 @@ export function calculateSicroCost(
     service: sums.D.plus(sums.E),
     total: unitCost,
   };
-  return { compositionId: composition.id, unitCost, breakdown, items, incomplete, transportPending };
+  const sicro = {
+    equipmentHour: sums.A, laborHour: sums.B, executionHour: sums.A.plus(sums.B), execution, fic: ficCost,
+    material: sums.C, auxiliary: sums.D, fixedTime: sums.E, subtotal: execution.plus(ficCost).plus(sums.C).plus(sums.D),
+  };
+  return { compositionId: composition.id, unitCost, breakdown, items, incomplete, transportPending, sicro };
 }

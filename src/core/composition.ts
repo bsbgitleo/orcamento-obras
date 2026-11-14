@@ -90,6 +90,8 @@ export interface CompositionCost {
   incomplete: boolean;
   /** SICRO: há momento de transporte (grupo F) sem DMT — custo igual ao publicado, sem transporte */
   transportPending?: boolean;
+  /** SICRO: subtotais como no relatório analítico do DNIT (4 casas) */
+  sicro?: { equipmentHour: Dec; laborHour: Dec; executionHour: Dec; execution: Dec; fic: Dec; material: Dec; auxiliary: Dec; fixedTime: Dec; subtotal: Dec };
 }
 
 export class CompositionCycleError extends Error {

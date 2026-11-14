@@ -94,6 +94,12 @@ model Company {
   id            String                 @id @default(cuid())
   name          String
   document      String? // CNPJ
+  /// Dados para a proposta comercial e a planilha dos proponentes (decisão #59)
+  address         String?
+  phone           String?
+  email           String?
+  technicalLead   String? // responsável técnico
+  technicalRegistry String? // CREA / CAU
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
   memberships   Membership[]
@@ -386,6 +392,15 @@ model Budget {
   /// Duração do cronograma físico-financeiro (meses)
   scheduleMonths Int @default(6)
 
+  // Proposta comercial (decisão #59)
+  proposalValidityDays Int?
+  executionTerm        String? // "90 dias corridos a partir da ordem de serviço"
+  paymentTerms         String?
+  proposalNotes        String?
+  // Planilha para proponentes (decisão #60)
+  bidderInstructions String?
+  bidderPremises     String?
+
   // Totais desnormalizados (recalculados a cada alteração)
   directCost Decimal @default(0) @db.Decimal(15, 2)
   salePrice  Decimal @default(0) @db.Decimal(15, 2)
@@ -430,6 +445,10 @@ model WbsNode {
   totalPrice    Decimal?     @db.Decimal(15, 2) // TRUNC(qtd × unitPrice, 2)
   /// Item de mero fornecimento → usa supplyBdi do orçamento
   isSupplyItem  Boolean      @default(false)
+  /// Planilha para proponentes (decisão #60): especificação, critério de medição e se exige marca/produto
+  specification       String?
+  measurementCriteria String?
+  requiresBrand       Boolean @default(false)
 
   schedule ScheduleEntry[]
 

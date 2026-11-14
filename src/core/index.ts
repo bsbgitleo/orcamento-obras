@@ -9,3 +9,4 @@ export * from "./schedule";
 export * from "./maintenance";
 export * from "./own-composition";
 export * from "./sicro";
+export * from "./extenso";

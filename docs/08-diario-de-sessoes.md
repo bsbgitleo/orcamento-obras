@@ -41,7 +41,7 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 
 ## Sessão 2 — sexta-feira, 13/11/2026 (Claude Code no Mac)
 
-**Início:** ~19:30 · **Última atualização:** 21:30
+**Início:** ~19:30 · **Última atualização:** 22:00
 
 ### Discutido / decidido
 - Levantamento do código no Mac; Leo arquivou referências de cotação (planilhas-padrão de proposta da SQS 211 G e SQS 308 I e duas propostas de fornecedor) em `orcamento-obras-dados/referencias/` (fora do repositório) e trouxe os documentos 03, 07, 08 e 09 para `docs/`.
@@ -74,3 +74,9 @@ Registro de cada sessão de trabalho com o Claude: data, horário (America/Sao_P
 - Feito (sem commit): migração `20261114020000_sicro`; `src/core/sicro.ts` com testes (0307731 = R$ 184,60; 0308308 = R$ 5.112,79); importador `src/import/sicro/*` e `npm run sicro:import`; importação real dos dois regimes em 12 s, custos 100 % iguais ao publicado; catálogo, curva ABC e composições próprias com SICRO; selo e aviso "sem transporte".
 - Teste no navegador: orçamento SICRO criado pelo assistente; 0307731 × 10 = R$ 1.846,00 e 0308308 × 2 = R$ 10.225,58, os dois sinalizados "sem transporte"; curva ABC com equipamentos em horas.
 - Ficou para decidir: fórmula do transporte com DMT (#58).
+
+### Continuação — exportações (21:35–22:00)
+- Commit do SICRO (`c58697d`).
+- Respostas do Leo: entram as quatro exportações (Excel sintética/analítica; BDI, cronograma e ABC; proposta em PDF; planilha para proponentes), com **valores iguais ao app** e **PDF pela página de impressão** (#59–#61).
+- Feito (sem commit): migração `20261114030000_exports` (dados da empresa, da proposta, dos proponentes e especificação por serviço); `src/lib/exports/*` (carregador único, gerador do Excel e da planilha para proponentes) com testes; valor por extenso (`src/core/extenso.ts`) com testes; abas Especificações e Exportar no orçamento; Empresa → Dados da empresa; página A4 da proposta.
+- Teste no navegador (aba separada, porque o Leo estava usando o painel): dados da empresa salvos; especificação e "exige marca" num serviço; dados da proposta; os dois .xlsx baixam com nome certo; proposta com valor por extenso e assinatura. Excel conferido: na analítica SICRO os subtotais batem com o DNIT (execução 166,2907; FIC 3,5186; subtotal 5.112,0096).

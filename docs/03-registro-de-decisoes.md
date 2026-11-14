@@ -62,18 +62,20 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 56 | 2026-11-13 | **Modelo do SICRO** nas mesmas tabelas das bases oficiais: `Input.unitPrice` passa a 4 casas; equipamentos com custo produtivo e improdutivo; `Composition.productionRate` e `fic`; `CompositionItem.position`, `sicroGroup` (A–F), utilizações, `percent`/`label` (novo tipo `PERCENTUAL`) e `transportCodes`. O motor geral escolhe o método pela composição (`method: "SICRO"`), então orçamento, curva ABC (equipe em horas por unidade) e composições próprias funcionam com as duas bases | Aprovado (proposto pelo Claude) · implementado |
 | 57 | 2026-11-13 | **Importação do SICRO**: arquivos reconhecidos pelo nome do DNIT; uma base por regime (sem / com desoneração: mão de obra e equipamentos desonerados, materiais e estrutura iguais). Material sem preço no relatório entra com **R$ 0,00**, como o DNIT calcula (origem do preço na UF gravada em `Input.priceOrigin`, ex.: PRZ). A base com desoneração não tem custo publicado para conferir. Transporte de material produzido na obra (brita de central etc.) liga à composição. Reimportação bloqueada se houver orçamento (#46). Por enquanto pela linha de comando (`npm run sicro:import`) | Aprovado (proposto pelo Claude) · implementado |
 | 58 | 2026-11-13 | **Transporte (grupo F) adiado**: a fórmula com DMT e FIT não pode ser conferida com os relatórios (o DNIT publica sem transporte). Até ser implementada a partir do Manual de Custos do DNIT, o custo fica igual ao publicado e os serviços são sinalizados "sem transporte" (#39) | Pendente — confirmar com o Leo |
+| 59 | 2026-11-13 | **Exportação em Excel** (aba Exportar do orçamento): um arquivo com Sintética, Analítica (composições abertas; no SICRO com produção, FIC e os subtotais do DNIT), BDI e encargos, Cronograma e curvas ABC. **Valores iguais aos do app**; totais de etapa e geral com SOMA (resultado já gravado). Dados da empresa (endereço, contato, responsável técnico e registro) em Empresa → Dados da empresa | **Aprovado pelo Leo** · implementado |
+| 60 | 2026-11-13 | **Planilha para proponentes** no modelo de homogeneização arquivado: sem preços; colunas especificação, critério de medição e aceitação e marca/produto; campos da proponente em amarelo e destravados (planilha protegida sem senha); total do item = ARRED(quant × preço; 2); abas de Instruções e Premissas a partir de textos do orçamento. Especificação, critério e "exige marca" por serviço na nova aba Especificações. Memória de cálculo e especificação de materiais ainda não entram | **Aprovado pelo Leo** · implementado |
+| 61 | 2026-11-13 | **Proposta comercial** como página A4 para imprimir / salvar como PDF (sem biblioteca nova): cabeçalho da empresa, objeto, valor global por extenso, resumo por etapa, prazo, validade, condições de pagamento, base de preços, observações, assinatura do RT e a sintética anexa | **Aprovado pelo Leo** · implementado |
 
-## Estado do código (2026-11-13, 21h30)
-- Repo: github.com/bsbgitleo/orcamento-obras. Ramo local `feat/importacao-sinapi`: `fdd89db` (importação, #45–#50) e `486337c` (base própria, #51–#54); o SICRO (#55–#58) está na pasta, **sem commit**. Nada enviado ao GitHub; `main` continua em `5cd512b`.
-- **103 testes**; `tsc` e `eslint` sem erros.
-- Bases no banco local: SINAPI DF 10/2026 (3 regimes) e **SICRO DF 07/2026 (2 regimes)**, ambas iguais ao publicado.
+## Estado do código (2026-11-13, 22h)
+- Repo: github.com/bsbgitleo/orcamento-obras. Ramo local `feat/importacao-sinapi`: `fdd89db` (importação), `486337c` (base própria), `c58697d` (SICRO); as exportações (#59–#61) estão na pasta, **sem commit**. Nada enviado ao GitHub; `main` continua em `5cd512b`.
+- **107 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
 1. ~~Cronograma por subetapa (#37)~~ ✔
 2. ~~Upload SINAPI pela interface + UF escolhida + Manutenções (#32–#34)~~ ✔ (#45–#49)
 3. ~~Composições próprias + busca unificada (#36)~~ ✔ (#51–#54)
 4. ~~SICRO: motor e importador~~ ✔ (#55–#57). **Falta: DMT/transporte (#58), importação SICRO pela tela, encargos por profissional (#40).**
-5. Exportações (Excel/PDF) e proposta comercial.
+5. ~~Exportações (Excel/PDF) e proposta comercial~~ ✔ (#59–#61).
 
 ## Pendências
 - Ambiente de teste na web (Vercel + Neon) — Leo decide se cria as contas.
@@ -84,4 +86,5 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 - Importação em processo separado (worker) se a hospedagem escolhida exigir (#47).
 - Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
 - Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.
+- Planilha para proponentes: abas de memória de cálculo (parâmetros com fórmula) e especificação de materiais, como nos modelos arquivados; comparação das propostas recebidas.
 - SICRO: DMT/transporte (#58); importação pela tela; encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).

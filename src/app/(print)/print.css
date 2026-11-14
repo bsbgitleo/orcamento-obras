@@ -1,0 +1,27 @@
+/* src/app/(print)/print.css — proposta comercial em A4 */
+@page { size: A4; margin: 16mm 14mm 18mm; }
+.print-root { background: #e9ecef; min-height: 100vh; padding: 24px 0; }
+.sheet { background: #fff; width: 210mm; max-width: 100%; margin: 0 auto 24px; padding: 16mm 14mm; box-sizing: border-box; box-shadow: 0 2px 12px rgba(0,0,0,.12); color: #1d2329; font-size: 10.5pt; line-height: 1.45; }
+.sheet h1 { font-size: 16pt; margin: 0 0 4px; }
+.sheet h2 { font-size: 12pt; margin: 18px 0 6px; border-bottom: 1px solid #c9ced5; padding-bottom: 3px; }
+.sheet .letterhead { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #0f5c8a; padding-bottom: 8px; margin-bottom: 14px; }
+.sheet .letterhead .company { font-weight: 700; font-size: 12pt; }
+.sheet .small { font-size: 8.5pt; color: #4a525b; }
+.sheet table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.sheet th, .sheet td { border: 1px solid #c9ced5; padding: 3px 5px; vertical-align: top; }
+.sheet th { background: #eef2f6; text-align: left; }
+.sheet td.num, .sheet th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sheet tr.stage td { background: #f4f6f8; font-weight: 600; }
+.sheet .total { font-size: 13pt; font-weight: 700; }
+.sheet .sign { margin-top: 36px; text-align: center; }
+.sheet .sign .line { border-top: 1px solid #1d2329; width: 70%; margin: 0 auto 4px; }
+.toolbar-print { width: 210mm; max-width: 100%; margin: 0 auto 12px; display: flex; gap: 8px; justify-content: flex-end; }
+.page-break { break-before: page; }
+@media print {
+  .print-root { background: none; padding: 0; }
+  .sheet { box-shadow: none; margin: 0; padding: 0; width: auto; }
+  .toolbar-print { display: none; }
+  .sheet tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+}
+@media (max-width: 800px) { .sheet { padding: 16px; font-size: 10pt; } .sheet .letterhead { flex-direction: column; } }
