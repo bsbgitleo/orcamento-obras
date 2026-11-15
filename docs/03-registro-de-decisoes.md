@@ -33,7 +33,7 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 27 | 2026-11-13 | Toda alteração na EAP (adicionar, editar quantidade/descrição, mover, excluir) recalcula o orçamento inteiro no servidor (`recalculateBudget`). Simples e sempre consistente | **Aprovado pelo Leo** |
 | 28 | 2026-11-13 | Curva ABC: a classe é decidida pelo acumulado **antes** do item (A se < 80 %, B se < 95 %, senão C). O item que cruza o limite fica na classe anterior; o 1º item é sempre A. Serviços agrupados por composição; insumos obtidos pela explosão das composições (qtd × coeficientes agregados). O total de insumos difere em centavos do custo direto por causa do truncamento item a item (esperado) | Aprovado (proposto pelo Claude) |
 | 29 | 2026-11-13 | Cronograma físico-financeiro: % por mês sobre o preço de venda da etapa. `valor = TRUNC(preço × %/100, 2)`; o último mês com % recebe a diferença de centavos para a linha fechar. Linhas que não somam 100 % são salvas e sinalizadas (obra pública exige 100 %). Duração em `Budget.scheduleMonths` (1–60). **Revisada pela #37: por subetapa** | Aprovado |
-| 30 | 2026-11-13 | **Modelo de negócio: SaaS para terceiros.** Multiempresa (tenant) em todos os dados de cadastro e orçamento, bases oficiais compartilhadas entre empresas, autenticação e planos | **Aprovado pelo Leo** · implementado (commit `9225a42`) |
+| 30 | 2026-11-13 | **Modelo de negócio: SaaS para terceiros.** Multiempresa (tenant) em todos os dados de cadastro e orçamento, bases oficiais compartilhadas entre empresas, autenticação e planos | **Substituída pela #84** (a estrutura multiempresa, já implementada no commit `9225a42`, continua) |
 | 31 | 2026-11-13 | **SICRO entra no MVP** (obras rodoviárias; Lei 14.133 art. 23 §2º). Regra TCU: não misturar SINAPI e SICRO item a item no mesmo orçamento — garantido por "uma base por orçamento". Estrutura das planilhas em `09-sicro-estrutura-planilhas.md` | **Aprovado pelo Leo** |
 | 32 | 2026-11-13 | **Importação de qualquer UF**: o usuário informa a UF na importação (o arquivo da Caixa traz todas). Cada UF/mês/regime vira uma `PriceTable` | **Aprovado pelo Leo** |
 | 33 | 2026-11-13 | **`SINAPI_Manutenções` será importado** para alertar, em orçamentos antigos, composições/insumos desativados ou alterados na referência nova. Nova tabela `SourceMaintenance` (referência, tipo, código, descrição, manutenção) | **Aprovado pelo Leo** |
@@ -87,9 +87,11 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 | 81 | 2026-11-14 | **Quantidade vinculada a um parâmetro** (opcional, por serviço): a quantidade acompanha o resultado do parâmetro (4 casas, meio para cima) a cada recálculo; na planilha aparece "=SIGLA" e não se edita à mão; com o parâmetro em erro, fica o último valor e a tela avisa; unidade diferente da do serviço é sinalizada | Aprovado pelo Leo · implementado |
 | 82 | 2026-11-14 | **Especificação mínima de materiais** (na aba Especificações): material, especificação mínima, referências comerciais (ou equivalente técnico), normas e **os serviços da planilha marcados** — o app escreve a numeração (três ou mais seguidos da mesma etapa como intervalo, "3.4 a 3.6") e a mantém certa se a planilha for renumerada. Avisos no alto da memória e da especificação | Aprovado pelo Leo · implementado |
 | 83 | 2026-11-14 | **Abas "Memória de Cálculo" e "Especificação de Materiais" na planilha para proponentes e na planilha orçamentária em Excel**, com as fórmulas do Excel vivas (siglas trocadas pelas células da coluna de valor, funções em inglês, resultado gravado) e os estimados destacados | Aprovado pelo Leo · implementado |
+| 84 | 2026-11-15 | **O app não será comercializado** (retifica a #30): uso próprio, sem venda, planos nem cobrança. A estrutura multiempresa e o login já implementados continuam como estão. A hospedagem passa a ser decidida sem os requisitos de um produto comercial (termos de uso para clientes, cobrança, plano pago por uso comercial) | **Decisão do Leo** |
+| 85 | 2026-11-15 | **Uso local no Mac, sem hospedagem na web.** Banco de uso `orcamento_obras_uso` (cópia do de desenvolvimento, que segue como `orcamento_obras`); build autossuficiente do Next (`output: "standalone"`) instalado em `~/Library/Application Support/OrcamentoObras` por `npm run local:instalar` (build, cópia, migrações no banco de uso, serviços); PostgreSQL pelo `brew services` e o app por LaunchAgent (`com.orcamentoobras.app`, porta 3020, na rede do escritório pelo nome do Mac, sem https: `COOKIE_SECURE=false`); cópia diária às 12h30 (`com.orcamentoobras.copia`) para o iCloud Drive, pasta "Cópias Orçamento de Obras", com as 14 últimas. Restauração conferida | **Aprovado pelo Leo** · implementado |
 
 ## Estado do código (2026-11-14)
-- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `9052a41` no GitHub (público). A memória de cálculo e a especificação de materiais (#80–#83) estão na pasta, **sem commit**.
+- Repo: github.com/bsbgitleo/orcamento-obras, `main` em `f9f2f8f` no GitHub (público). A decisão #84 e o uso local (#85) estão na pasta, **sem commit**.
 - **140 testes**; `tsc` e `eslint` sem erros.
 
 ## Próximos passos (ordem combinada)
@@ -100,12 +102,9 @@ Atualize este arquivo sempre que uma decisão for tomada em um chat do projeto (
 5. ~~Exportações (Excel/PDF) e proposta comercial~~ ✔ (#59–#61).
 
 ## Pendências
-- Ambiente de teste na web (Vercel + Neon) — Leo decide se cria as contas.
-- Planos/cobrança do SaaS (fora do MVP).
 - Provedor de e-mail para recuperação de senha (depois).
 - Pasta `~/orcamento-obras` (fora de Documentos): é um clone antigo do mesmo repositório (`07b2965`, só o `package-lock.json` alterado pelo npm) — o Leo decide se apaga.
 - Documentos 01 (especificação), 02 (modelo de dados) e 06 (regras TCU) não estão no repositório.
-- Importação em processo separado (worker) se a hospedagem escolhida exigir (#47).
 - Justificativa da composição própria: hoje só aviso; decidir se vira obrigatória em obra pública ao incluir o serviço.
 - Várias cotações por insumo próprio (mediana/menor preço) — módulo de cotação, junto da planilha para proponentes.
 - SICRO: cálculo do FIT pelo método de 2025 (#68); encargos por profissional (#40) ainda não importados (o orçamento SICRO aceita qualquer tabela de encargos do mesmo regime); cópia de composição SICRO para a base própria bloqueada (dá para usá-la como auxiliar).

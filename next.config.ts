@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
   experimental: { serverActions: { bodySizeLimit: "11mb" } },
   // pdf.js lê as propostas em PDF no servidor; carregado do node_modules, sem empacotar
   serverExternalPackages: ["pdfjs-dist"],
+  // Uso local no Mac (decisão #85): build autossuficiente (.next/standalone), instalado
+  // fora de Documentos por local/instalar.sh. O worker do pdf.js é carregado por
+  // import dinâmico, que o rastreamento de arquivos não enxerga.
+  output: "standalone",
+  outputFileTracingIncludes: { "/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"] },
 };
 
 export default nextConfig;

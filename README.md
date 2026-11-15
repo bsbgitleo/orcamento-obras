@@ -80,6 +80,25 @@ npm run sinapi:check -- DF 2026-10 NAO_DESONERADO   # recalcula tudo e compara c
   substitui o anterior, e um arquivo mais antigo não sobrescreve um mais novo. Os orçamentos feitos numa referência
   anterior mostram as composições e os insumos (inclusive de composições auxiliares) desativados ou alterados depois.
 
+## Uso diário no Mac (sem hospedagem)
+
+O app de uso roda neste Mac, separado do ambiente de desenvolvimento:
+
+- endereço: http://localhost:3020 (no Mac) e http://MacBook-Pro-de-Leonardo-2.local:3020 (na rede do escritório);
+- banco `orcamento_obras_uso` (o `orcamento_obras` é o de desenvolvimento, usado pelo `npm run dev` na porta 3010);
+- instalação em `~/Library/Application Support/OrcamentoObras` (app, configuração `ambiente`, `imports/`, `logs/`);
+- o PostgreSQL liga pelo `brew services` e o app por um LaunchAgent; os dois sobem sozinhos com o Mac;
+- cópia de segurança diária às 12h30 no iCloud Drive, pasta "Cópias Orçamento de Obras" (14 últimas).
+
+Para instalar ou atualizar depois de mudanças no código (build, cópia, migrações no banco de uso e reinício):
+
+```bash
+npm run local:instalar
+```
+
+Restaurar uma cópia: `createdb orcamento_obras_uso` (com o banco antigo renomeado ou apagado) e
+`pg_restore -d orcamento_obras_uso --no-owner <arquivo>.dump`. Logs em `~/Library/Application Support/OrcamentoObras/logs`.
+
 ## Importando o SICRO (DNIT)
 
 Pela tela (administrador da plataforma): Tabelas importadas → **Importar base oficial**, enviando os relatórios .xlsx

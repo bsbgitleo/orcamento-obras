@@ -19,7 +19,8 @@
     "sinapi:check": "tsx scripts/check-price-table.ts",
     "admin:platform": "tsx scripts/platform-admin.ts",
     "sicro:import": "tsx scripts/import-sicro.ts",
-    "setup": "npm run db:migrate"
+    "setup": "npm run db:migrate",
+    "local:instalar": "zsh local/instalar.sh"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",
